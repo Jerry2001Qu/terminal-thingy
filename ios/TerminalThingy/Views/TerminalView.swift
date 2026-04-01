@@ -8,6 +8,7 @@ struct TerminalView: View {
     @StateObject private var client = WebSocketClient()
     @State private var isScrolledToBottom = true
     @State private var hasNewOutput = false
+    @State private var showKeyboard = false
     @AppStorage("keepScreenAwake") private var keepScreenAwake = true
 
     var body: some View {
@@ -84,6 +85,15 @@ struct TerminalView: View {
                         .padding(.bottom, 8)
                     }
                 }
+
+                // Keyboard input capture (zero-size, manages first responder + accessory bar)
+                if showKeyboard {
+                    TerminalKeyboardCapture(
+                        onKey: { key in client.sendInput(key) },
+                        onHideKeyboard: { showKeyboard = false }
+                    )
+                    .frame(width: 0, height: 0)
+                }
             }
         }
         .background(Color(.systemBackground))
@@ -93,6 +103,13 @@ struct TerminalView: View {
         .toolbar {
             ToolbarItem(placement: .principal) {
                 connectionStatusView
+            }
+            ToolbarItem(placement: .primaryAction) {
+                Button {
+                    showKeyboard.toggle()
+                } label: {
+                    Image(systemName: showKeyboard ? "keyboard.fill" : "keyboard")
+                }
             }
         }
         .overlay {
