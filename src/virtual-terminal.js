@@ -1,4 +1,5 @@
-import { Terminal } from '@xterm/headless';
+import pkg from '@xterm/headless';
+const { Terminal } = pkg;
 
 // ANSI 16-color palette
 const PALETTE_16 = [

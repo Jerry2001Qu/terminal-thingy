@@ -1,3 +1,142 @@
-export function startApp(argv) {
-  console.log('terminal-thingy starting...', argv);
+import { generateCode, generateSalt } from './auth.js';
+import { PtyManager } from './pty-manager.js';
+import { VirtualTerminal } from './virtual-terminal.js';
+import { StreamServer } from './server.js';
+import { Discovery } from './discovery.js';
+
+export async function startApp(opts) {
+  const shell = opts.shell || process.env.SHELL || '/bin/sh';
+  const useAuth = opts.auth !== false;
+  const code = useAuth ? generateCode() : null;
+  const salt = useAuth ? generateSalt() : null;
+  const fps = opts.fps || 30;
+  const scrollbackLimit = opts.scrollback || 1000;
+
+  // Get outer terminal size
+  const cols = process.stdout.columns || 80;
+  const rows = process.stdout.rows || 24;
+
+  // Start WebSocket server
+  const server = new StreamServer({
+    port: opts.port || 0,
+    host: opts.host || '0.0.0.0',
+    auth: useAuth,
+    code,
+    salt,
+  });
+
+  const address = await server.start();
+
+  // Start discovery
+  const discovery = new Discovery({
+    port: address.port,
+    code,
+    salt,
+    shell,
+    host: opts.host,
+    noQr: opts.qr === false,
+    noBonjour: opts.bonjour === false,
+  });
+
+  const { url } = discovery.start();
+  discovery.printConnectionInfo(url, code);
+
+  // Create virtual terminal
+  const vt = new VirtualTerminal(cols, rows, scrollbackLimit);
+
+  // Handle new client connections — send current state + scrollback
+  server.onConnect((ws) => {
+    server.send(ws, vt.getState());
+    const scrollback = vt.getScrollbackBuffer();
+    if (scrollback.length > 0) {
+      server.send(ws, { type: 'scrollback', lines: scrollback });
+    }
+  });
+
+  // Spawn PTY
+  const ptyManager = new PtyManager({ shell });
+  ptyManager.spawn(cols, rows);
+
+  // Set stdin to raw mode
+  if (process.stdin.isTTY) {
+    process.stdin.setRawMode(true);
+  }
+  process.stdin.resume();
+
+  // Proxy stdin → PTY
+  process.stdin.on('data', (data) => {
+    ptyManager.write(data);
+  });
+
+  // PTY output → stdout + virtual terminal
+  ptyManager.onData((data) => {
+    process.stdout.write(data);
+    vt.write(data);
+  });
+
+  // Diff broadcast tick
+  const tickInterval = Math.round(1000 / fps);
+  const ticker = setInterval(() => {
+    if (server.clientCount() === 0) return;
+
+    // Collect scrollback first
+    const newScrollback = vt.collectScrollback();
+    if (newScrollback.length > 0) {
+      server.broadcast({ type: 'scrollback', lines: newScrollback });
+    }
+
+    // Then send diff
+    const diff = vt.getDiff();
+    if (diff) {
+      server.broadcast(diff);
+    }
+  }, tickInterval);
+
+  // Handle terminal resize
+  process.stdout.on('resize', () => {
+    const newCols = process.stdout.columns;
+    const newRows = process.stdout.rows;
+    ptyManager.resize(newCols, newRows);
+    vt.resize(newCols, newRows);
+    if (server.clientCount() > 0) {
+      server.broadcast({ type: 'resize', cols: newCols, rows: newRows });
+      server.broadcast(vt.getState());
+    }
+  });
+
+  // Cleanup function
+  const cleanup = () => {
+    clearInterval(ticker);
+    if (process.stdin.isTTY) {
+      process.stdin.setRawMode(false);
+    }
+    process.stdin.pause();
+    discovery.stop();
+    server.close();
+    vt.destroy();
+    ptyManager.destroy();
+  };
+
+  // Handle PTY exit
+  ptyManager.onExit((exitCode) => {
+    cleanup();
+    process.exit(exitCode ?? 0);
+  });
+
+  // Handle signals
+  const handleSignal = (signal) => {
+    cleanup();
+    ptyManager.destroy();
+    process.exit(signal === 'SIGINT' ? 130 : 143);
+  };
+
+  process.on('SIGINT', () => handleSignal('SIGINT'));
+  process.on('SIGTERM', () => handleSignal('SIGTERM'));
+
+  // Handle uncaught errors — always restore terminal
+  process.on('uncaughtException', (err) => {
+    cleanup();
+    console.error('Fatal error:', err.message);
+    process.exit(1);
+  });
 }
