@@ -25,7 +25,17 @@ export async function startApp(opts) {
     salt,
   });
 
-  const address = await server.start();
+  let address;
+  try {
+    address = await server.start();
+  } catch (err) {
+    if (err.code === 'EADDRINUSE') {
+      console.error(`Error: port ${opts.port} is already in use. Try a different port or omit --port to use a random one.`);
+    } else {
+      console.error(`Error starting server: ${err.message}`);
+    }
+    process.exit(1);
+  }
 
   // Start discovery
   const discovery = new Discovery({
