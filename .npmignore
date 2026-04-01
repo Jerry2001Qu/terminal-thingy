@@ -1,0 +1,7 @@
+# Only publish the CLI — iOS app is built from source via the repo
+ios/
+tests/
+docs/
+.claude/
+.github/
+vitest.config.js
