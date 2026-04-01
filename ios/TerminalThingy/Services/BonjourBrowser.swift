@@ -108,15 +108,21 @@ class BonjourBrowser: ObservableObject {
             let connection = NWConnection(to: endpoint, using: .tcp)
             probeConnections.append(connection)
 
+            var didLeave = false
+            let leaveOnce = {
+                guard !didLeave else { return }
+                didLeave = true
+                group.leave()
+            }
+
             connection.stateUpdateHandler = { state in
                 switch state {
                 case .ready:
-                    // Port is open — session is alive
                     reachable.append(session)
                     connection.cancel()
-                    group.leave()
+                    leaveOnce()
                 case .failed, .cancelled:
-                    group.leave()
+                    leaveOnce()
                 default:
                     break
                 }
