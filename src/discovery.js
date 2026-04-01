@@ -28,9 +28,11 @@ export class Discovery {
         type: 'terminal-thingy',
         port: this.port,
         txt: {
-          salt: this.salt,
+          salt: this.salt || '',
           shell: this.shell,
           hostname: os.hostname(),
+          ip: ip,
+          port: String(this.port),
         },
       });
     }
