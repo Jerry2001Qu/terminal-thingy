@@ -163,7 +163,18 @@ final class TerminalCoreTextView: UIView {
                     attrs[.underlineColor] = fgColor
                 }
 
-                let attrStr = NSAttributedString(string: cell.char, attributes: attrs)
+                // Force text presentation for symbols that iOS would render as emoji
+                let displayChar: String
+                if cell.char.unicodeScalars.count == 1,
+                   let scalar = cell.char.unicodeScalars.first,
+                   !scalar.isASCII,
+                   scalar.properties.isEmoji {
+                    displayChar = cell.char + "\u{FE0E}" // Append text variation selector
+                } else {
+                    displayChar = cell.char
+                }
+
+                let attrStr = NSAttributedString(string: displayChar, attributes: attrs)
                 let line = CTLineCreateWithAttributedString(attrStr)
 
                 // Baseline: bottom of cell rect + descent
