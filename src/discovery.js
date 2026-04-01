@@ -4,10 +4,11 @@ import os from 'node:os';
 import path from 'node:path';
 
 export class Discovery {
-  constructor({ port, code, salt, shell, host = '0.0.0.0', noQr = false, noBonjour = false }) {
+  constructor({ port, code, salt, deviceId, shell, host = '0.0.0.0', noQr = false, noBonjour = false }) {
     this.port = port;
     this.code = code;
     this.salt = salt;
+    this.deviceId = deviceId;
     this.shell = path.basename(shell);
     this.host = host;
     this.noQr = noQr;
@@ -18,7 +19,7 @@ export class Discovery {
 
   start() {
     const ip = this._getLocalIp();
-    const params = this.code ? `?code=${this.code}&salt=${this.salt}` : '';
+    const params = this.code ? `?code=${this.code}&salt=${this.salt}&deviceId=${this.deviceId}` : '';
     const url = `ws://${ip}:${this.port}${params}`;
 
     if (!this.noBonjour) {
@@ -34,6 +35,7 @@ export class Discovery {
             hostname: os.hostname(),
             ip: ip,
             port: String(this.port),
+            deviceId: this.deviceId || '',
           },
         });
       } catch {

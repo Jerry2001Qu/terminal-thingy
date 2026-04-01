@@ -16,6 +16,7 @@ program
   .option('--fps <number>', 'Max updates per second', parseInt, 30)
   .option('--scrollback <number>', 'Max scrollback lines', parseInt, 1000)
   .option('--no-auth', 'Disable token auth and encryption')
+  .option('--reset-pin', 'Generate a new PIN for this device')
   .parse();
 
 startApp(program.opts());

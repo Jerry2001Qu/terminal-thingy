@@ -1,14 +1,22 @@
-import { generateCode, generateSalt } from './auth.js';
 import { PtyManager } from './pty-manager.js';
 import { VirtualTerminal } from './virtual-terminal.js';
 import { StreamServer } from './server.js';
 import { Discovery } from './discovery.js';
+import { loadOrCreateConfig, resetPin } from './config.js';
 
 export async function startApp(opts) {
   const shell = opts.shell || process.env.SHELL || '/bin/sh';
   const useAuth = opts.auth !== false;
-  const code = useAuth ? generateCode() : null;
-  const salt = useAuth ? generateSalt() : null;
+  let deviceId = null;
+  let code = null;
+  let salt = null;
+
+  if (useAuth) {
+    const config = opts.resetPin ? resetPin() : loadOrCreateConfig();
+    deviceId = config.deviceId;
+    code = config.pin;
+    salt = config.salt;
+  }
   const fps = opts.fps || 30;
   const scrollbackLimit = opts.scrollback || 1000;
 
@@ -42,6 +50,7 @@ export async function startApp(opts) {
     port: address.port,
     code,
     salt,
+    deviceId,
     shell,
     host: opts.host,
     noQr: opts.qr === false,
