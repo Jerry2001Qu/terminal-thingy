@@ -125,27 +125,27 @@ export async function startApp(opts) {
   });
 
   // Cleanup function
-  const cleanup = () => {
+  const cleanup = async () => {
     clearInterval(ticker);
     if (process.stdin.isTTY) {
       process.stdin.setRawMode(false);
     }
     process.stdin.pause();
     discovery.stop();
-    server.close();
+    await server.close();
     vt.destroy();
     ptyManager.destroy();
   };
 
   // Handle PTY exit
-  ptyManager.onExit((exitCode) => {
-    cleanup();
+  ptyManager.onExit(async (exitCode) => {
+    await cleanup();
     process.exit(exitCode ?? 0);
   });
 
   // Handle signals
-  const handleSignal = (signal) => {
-    cleanup();
+  const handleSignal = async (signal) => {
+    await cleanup();
     ptyManager.destroy();
     process.exit(signal === 'SIGINT' ? 130 : 143);
   };

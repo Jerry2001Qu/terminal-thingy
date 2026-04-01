@@ -61,7 +61,13 @@ class WebSocketClient: NSObject, ObservableObject {
                 self.receiveLoop()
 
             case .failure:
-                self.handleDisconnect()
+                // Check if this was a deliberate session end (close code 4000)
+                if currentTask?.closeCode.rawValue == 4000 {
+                    self.shouldReconnect = false
+                    DispatchQueue.main.async { self.state = .sessionEnded }
+                } else {
+                    self.handleDisconnect()
+                }
             }
         }
     }

@@ -43,7 +43,7 @@ struct DiscoveryView: View {
                                 VStack(alignment: .leading) {
                                     Text(session.hostname)
                                         .font(.headline)
-                                    Text("\(session.shell) · port \(session.port)")
+                                    Text("\(session.shell) · port \(String(session.port))")
                                         .font(.caption)
                                         .foregroundStyle(.secondary)
                                 }
@@ -80,7 +80,7 @@ struct DiscoveryView: View {
                             VStack(alignment: .leading) {
                                 Text(session.hostname)
                                     .font(.headline)
-                                Text("\(session.shell) · port \(session.port)")
+                                Text("\(session.shell) · port \(String(session.port))")
                                     .font(.caption)
                                     .foregroundStyle(.secondary)
                             }
