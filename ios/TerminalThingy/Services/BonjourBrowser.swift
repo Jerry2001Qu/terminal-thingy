@@ -9,6 +9,7 @@ struct DiscoveredSession: Identifiable {
     let ip: String
     let port: Int
     let salt: String
+    let deviceId: String
 }
 
 class BonjourBrowser: ObservableObject {
@@ -33,6 +34,7 @@ class BonjourBrowser: ObservableObject {
                 let ip = record.string(for: "ip") ?? ""
                 let portStr = record.string(for: "port") ?? "0"
                 let salt = record.string(for: "salt") ?? ""
+                let deviceId = record.string(for: "deviceId") ?? ""
                 let port = Int(portStr) ?? 0
 
                 guard !ip.isEmpty, port > 0 else { return nil }
@@ -50,7 +52,8 @@ class BonjourBrowser: ObservableObject {
                     shell: shell,
                     ip: ip,
                     port: port,
-                    salt: salt
+                    salt: salt,
+                    deviceId: deviceId
                 )
             }
             DispatchQueue.main.async {

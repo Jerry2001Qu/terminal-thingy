@@ -4,90 +4,140 @@ import CryptoKit
 
 struct DiscoveryView: View {
     @StateObject private var browser = BonjourBrowser()
+    @StateObject private var pairedStore = PairedDeviceStore()
     @State private var showQRScanner = false
     @State private var selectedSession: DiscoveredSession?
     @State private var connectionTarget: ConnectionTarget?
+    @State private var showConnectionTarget = false
 
-    private var showTerminal: Binding<Bool> {
-        Binding(
-            get: { connectionTarget != nil },
-            set: { if !$0 { connectionTarget = nil } }
-        )
+    private var knownSessions: [(DiscoveredSession, PairedDevice)] {
+        browser.sessions.compactMap { session in
+            guard !session.deviceId.isEmpty,
+                  let device = pairedStore.device(for: session.deviceId) else { return nil }
+            return (session, device)
+        }
+    }
+
+    private var nearbySessions: [DiscoveredSession] {
+        browser.sessions.filter { session in
+            session.deviceId.isEmpty || pairedStore.device(for: session.deviceId) == nil
+        }
     }
 
     var body: some View {
         List {
-            if browser.sessions.isEmpty {
-                VStack(spacing: 12) {
-                    Label("Searching...", systemImage: "antenna.radiowaves.left.and.right")
-                        .font(.headline)
-                    Text("Looking for terminal-thingy sessions on your network")
-                        .font(.subheadline)
-                        .foregroundStyle(.secondary)
-                        .multilineTextAlignment(.center)
+            if !knownSessions.isEmpty {
+                Section("Known Devices") {
+                    ForEach(knownSessions, id: \.0.id) { session, device in
+                        Button {
+                            connectionTarget = ConnectionTarget(
+                                ip: session.ip,
+                                port: session.port,
+                                code: device.pin,
+                                salt: device.salt,
+                                deviceId: device.deviceId
+                            )
+                            showConnectionTarget = true
+                        } label: {
+                            HStack {
+                                VStack(alignment: .leading) {
+                                    Text(session.hostname)
+                                        .font(.headline)
+                                    Text("\(session.shell) · port \(session.port)")
+                                        .font(.caption)
+                                        .foregroundStyle(.secondary)
+                                }
+                                Spacer()
+                                Image(systemName: "checkmark.circle.fill")
+                                    .foregroundStyle(.green)
+                            }
+                        }
+                    }
                 }
-                .frame(maxWidth: .infinity)
-                .padding()
-                .listRowBackground(Color.clear)
             }
 
-            ForEach(browser.sessions) { session in
-                Button {
-                    selectedSession = session
-                } label: {
+            Section(knownSessions.isEmpty ? "Nearby" : "New Devices") {
+                if nearbySessions.isEmpty && knownSessions.isEmpty {
                     HStack {
+                        ProgressView()
+                            .padding(.trailing, 8)
                         VStack(alignment: .leading) {
-                            Text(session.hostname)
+                            Text("Searching...")
                                 .font(.headline)
-                            Text("\(session.shell) · port \(session.port)")
+                            Text("Looking for terminal-thingy sessions")
                                 .font(.caption)
                                 .foregroundStyle(.secondary)
                         }
-                        Spacer()
-                        Image(systemName: "chevron.right")
-                            .foregroundStyle(.secondary)
+                    }
+                    .padding(.vertical, 4)
+                }
+
+                ForEach(nearbySessions) { session in
+                    Button {
+                        selectedSession = session
+                    } label: {
+                        HStack {
+                            VStack(alignment: .leading) {
+                                Text(session.hostname)
+                                    .font(.headline)
+                                Text("\(session.shell) · port \(session.port)")
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
+                            }
+                            Spacer()
+                            Image(systemName: "chevron.right")
+                                .foregroundStyle(.secondary)
+                        }
                     }
                 }
             }
         }
         .navigationTitle("Terminal Thingy")
-        .navigationBarItems(trailing: qrButton)
+        .toolbar {
+            ToolbarItem(placement: .primaryAction) {
+                if DataScannerViewController.isSupported {
+                    Button {
+                        showQRScanner = true
+                    } label: {
+                        Image(systemName: "qrcode.viewfinder")
+                    }
+                }
+            }
+        }
         .sheet(isPresented: $showQRScanner) {
             QRScannerView { urlString in
                 showQRScanner = false
                 if let target = ConnectionTarget.fromURL(urlString) {
+                    if let deviceId = target.deviceId, let code = target.code, let salt = target.salt {
+                        pairedStore.pair(deviceId: deviceId, hostname: target.ip, pin: code, salt: salt)
+                    }
                     connectionTarget = target
+                    showConnectionTarget = true
                 }
             }
         }
         .sheet(item: $selectedSession) { session in
             PINEntryView(session: session) { pin in
+                if !session.deviceId.isEmpty {
+                    pairedStore.pair(deviceId: session.deviceId, hostname: session.hostname, pin: pin, salt: session.salt)
+                }
                 connectionTarget = ConnectionTarget(
                     ip: session.ip,
                     port: session.port,
                     code: pin,
-                    salt: session.salt
+                    salt: session.salt,
+                    deviceId: session.deviceId.isEmpty ? nil : session.deviceId
                 )
+                showConnectionTarget = true
             }
         }
-        .navigationDestination(isPresented: showTerminal) {
+        .navigationDestination(isPresented: $showConnectionTarget) {
             if let target = connectionTarget {
                 TerminalView(target: target)
             }
         }
         .onAppear { browser.start() }
         .onDisappear { browser.stop() }
-    }
-
-    @ViewBuilder
-    private var qrButton: some View {
-        if DataScannerViewController.isSupported {
-            Button {
-                showQRScanner = true
-            } label: {
-                Image(systemName: "qrcode.viewfinder")
-            }
-        }
     }
 }
 
@@ -97,6 +147,7 @@ struct ConnectionTarget: Hashable, Identifiable {
     let port: Int
     let code: String?
     let salt: String?
+    let deviceId: String?
 
     var websocketURL: URL {
         var components = URLComponents()
@@ -121,7 +172,8 @@ struct ConnectionTarget: Hashable, Identifiable {
 
         let code = components.queryItems?.first(where: { $0.name == "code" })?.value
         let salt = components.queryItems?.first(where: { $0.name == "salt" })?.value
+        let deviceId = components.queryItems?.first(where: { $0.name == "deviceId" })?.value
 
-        return ConnectionTarget(ip: host, port: port, code: code, salt: salt)
+        return ConnectionTarget(ip: host, port: port, code: code, salt: salt, deviceId: deviceId)
     }
 }
