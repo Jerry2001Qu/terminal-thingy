@@ -66,7 +66,11 @@ struct PINEntryView: View {
             .navigationTitle("Enter PIN")
             .navigationBarTitleDisplayMode(.inline)
             .navigationBarItems(leading: Button("Cancel") { dismiss() })
-            .onAppear { focused = true }
+            .onAppear {
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+                    focused = true
+                }
+            }
         }
     }
 
