@@ -33,18 +33,26 @@ class WebSocketClient: NSObject, ObservableObject {
     private func doConnect() {
         guard let url = url else { return }
 
+        // Cancel old session/task to prevent stale receive loops from triggering reconnects
+        task?.cancel(with: .normalClosure, reason: nil)
+        task = nil
+        session?.invalidateAndCancel()
+        session = nil
+
         DispatchQueue.main.async {
             self.state = self.reconnectAttempt == 0 ? .connecting : .reconnecting(attempt: self.reconnectAttempt)
         }
 
-        session = URLSession(configuration: .default, delegate: self, delegateQueue: nil)
-        task = session?.webSocketTask(with: url)
+        let newSession = URLSession(configuration: .default, delegate: self, delegateQueue: nil)
+        session = newSession
+        task = newSession.webSocketTask(with: url)
         task?.resume()
     }
 
     private func receiveLoop() {
-        task?.receive { [weak self] result in
-            guard let self = self else { return }
+        let currentTask = task
+        currentTask?.receive { [weak self] result in
+            guard let self = self, self.task === currentTask else { return }
 
             switch result {
             case .success(let message):
@@ -126,6 +134,8 @@ extension WebSocketClient: URLSessionWebSocketDelegate {
                     webSocketTask: URLSessionWebSocketTask,
                     didCloseWith closeCode: URLSessionWebSocketTask.CloseCode,
                     reason: Data?) {
+        // Only handle disconnect if this is still our active task
+        guard webSocketTask === self.task else { return }
         handleDisconnect()
     }
 }

@@ -74,7 +74,7 @@ export class VirtualTerminal {
   _resolveColor(color, mode) {
     if (mode === 0) return null; // Default color
     if (mode === 1) return PALETTE_16[color] || null; // 16-color palette
-    if (mode === 2) return null; // 256-color — return index, let client resolve
+    if (mode === 2) return this._palette256(color); // 256-color palette
     if (mode === 3) {
       // RGB: color is packed as (r << 16) | (g << 8) | b
       const r = (color >> 16) & 0xff;
@@ -83,6 +83,21 @@ export class VirtualTerminal {
       return `#${r.toString(16).padStart(2, '0')}${g.toString(16).padStart(2, '0')}${b.toString(16).padStart(2, '0')}`;
     }
     return null;
+  }
+
+  _palette256(index) {
+    if (index < 16) return PALETTE_16[index];
+    if (index < 232) {
+      // 6x6x6 color cube (indices 16-231)
+      const i = index - 16;
+      const r = Math.floor(i / 36) * 51;
+      const g = Math.floor((i % 36) / 6) * 51;
+      const b = (i % 6) * 51;
+      return `#${r.toString(16).padStart(2, '0')}${g.toString(16).padStart(2, '0')}${b.toString(16).padStart(2, '0')}`;
+    }
+    // Grayscale ramp (indices 232-255)
+    const gray = (index - 232) * 10 + 8;
+    return `#${gray.toString(16).padStart(2, '0')}${gray.toString(16).padStart(2, '0')}${gray.toString(16).padStart(2, '0')}`;
   }
 
   getDiff() {
