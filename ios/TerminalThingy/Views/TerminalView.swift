@@ -15,7 +15,7 @@ struct TerminalView: View {
             ZStack(alignment: .bottom) {
                 ScrollViewReader { proxy in
                     ScrollView {
-                        VStack(spacing: 0, content: {
+                        VStack(spacing: 0) {
                             // Scrollback lines
                             ForEach(Array(grid.scrollbackLines.enumerated()), id: \.offset) { index, line in
                                 TerminalCanvas(
@@ -38,8 +38,7 @@ struct TerminalView: View {
                                 availableWidth: geo.size.width
                             )
                             .id("viewport")
-                        })
-                        .frame(maxHeight: .infinity, alignment: .top)
+                        }
                     }
                     .onChange(of: grid.cells) { _ in
                         if isScrolledToBottom {
