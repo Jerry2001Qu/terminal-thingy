@@ -1,6 +1,6 @@
 import { WebSocketServer } from 'ws';
 import { URL } from 'node:url';
-import { encrypt, deriveKey } from './auth.js';
+import { encrypt, decrypt, deriveKey } from './auth.js';
 
 export class StreamServer {
   constructor({ port = 0, host = '0.0.0.0', auth = true, code = null, salt = null }) {
@@ -38,6 +38,20 @@ export class StreamServer {
         ws.on('close', () => this.clients.delete(ws));
         ws.on('error', () => this.clients.delete(ws));
 
+        ws.on('message', (raw) => {
+          if (!this._onInput) return;
+          try {
+            const text = raw.toString();
+            const json = this.key ? decrypt(text, this.key) : text;
+            const msg = JSON.parse(json);
+            if (msg.type === 'input' && typeof msg.data === 'string') {
+              this._onInput(msg.data);
+            }
+          } catch {
+            // Invalid message, ignore
+          }
+        });
+
         if (this._onConnect) this._onConnect(ws);
       });
     });
@@ -45,6 +59,10 @@ export class StreamServer {
 
   onConnect(handler) {
     this._onConnect = handler;
+  }
+
+  onInput(handler) {
+    this._onInput = handler;
   }
 
   broadcast(message) {

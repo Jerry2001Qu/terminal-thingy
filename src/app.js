@@ -73,6 +73,10 @@ export async function startApp(opts) {
     }
   });
 
+  server.onInput((data) => {
+    ptyManager.write(data);
+  });
+
   // Spawn PTY
   const ptyManager = new PtyManager({ shell });
   ptyManager.spawn(cols, rows);
