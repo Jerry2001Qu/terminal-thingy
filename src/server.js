@@ -73,7 +73,7 @@ export class StreamServer {
     return new Promise((resolve) => {
       if (!this.wss) return resolve();
       for (const client of this.clients) {
-        client.close();
+        client.close(4000, 'Session ended');
       }
       this.wss.close(resolve);
     });

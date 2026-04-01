@@ -137,6 +137,13 @@ extension WebSocketClient: URLSessionWebSocketDelegate {
                     reason: Data?) {
         // Only handle disconnect if this is still our active task
         guard webSocketTask === self.task else { return }
-        handleDisconnect()
+
+        // Close code 4000 = session intentionally ended (shell exited)
+        if closeCode.rawValue == 4000 {
+            shouldReconnect = false
+            DispatchQueue.main.async { self.state = .sessionEnded }
+        } else {
+            handleDisconnect()
+        }
     }
 }
