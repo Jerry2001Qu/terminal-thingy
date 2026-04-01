@@ -15,9 +15,10 @@ struct DiscoveredSession: Identifiable {
 class BonjourBrowser: ObservableObject {
     @Published var sessions: [DiscoveredSession] = []
     private var browser: NWBrowser?
-    private var probeConnections: [NWConnection] = []
     private var lastCandidates: [DiscoveredSession] = []
     private var reprobeTimer: Timer?
+    private var probeGeneration = 0
+    private let probeQueue = DispatchQueue(label: "terminal-thingy.probe")
 
     func start() {
         let descriptor = NWBrowser.Descriptor.bonjourWithTXTRecord(
@@ -72,7 +73,6 @@ class BonjourBrowser: ObservableObject {
                 }
             }
 
-            // Save candidates for periodic re-probing
             self?.lastCandidates = deduped
             self?.probeAndFilter(deduped)
         }
@@ -85,19 +85,18 @@ class BonjourBrowser: ObservableObject {
         }
     }
 
-    /// Try a quick TCP connection to each session. Only show reachable ones.
     private func probeAndFilter(_ candidates: [DiscoveredSession]) {
-        // Cancel any in-flight probes
-        for conn in probeConnections { conn.cancel() }
-        probeConnections.removeAll()
+        // Increment generation — results from older probes will be ignored
+        probeQueue.sync { probeGeneration += 1 }
+        let currentGen = probeGeneration
 
         guard !candidates.isEmpty else {
             DispatchQueue.main.async { self.sessions = [] }
             return
         }
 
-        var reachable: [DiscoveredSession] = []
         let group = DispatchGroup()
+        var reachable: [DiscoveredSession] = []
 
         for session in candidates {
             group.enter()
@@ -106,23 +105,27 @@ class BonjourBrowser: ObservableObject {
                 port: NWEndpoint.Port(integerLiteral: UInt16(session.port))
             )
             let connection = NWConnection(to: endpoint, using: .tcp)
-            probeConnections.append(connection)
-
             var didLeave = false
-            let leaveOnce = {
-                guard !didLeave else { return }
-                didLeave = true
-                group.leave()
-            }
 
-            connection.stateUpdateHandler = { state in
+            connection.stateUpdateHandler = { [weak self] state in
+                guard let self = self else { return }
                 switch state {
                 case .ready:
-                    reachable.append(session)
+                    self.probeQueue.sync {
+                        if !didLeave {
+                            reachable.append(session)
+                            didLeave = true
+                            group.leave()
+                        }
+                    }
                     connection.cancel()
-                    leaveOnce()
                 case .failed, .cancelled:
-                    leaveOnce()
+                    self.probeQueue.sync {
+                        if !didLeave {
+                            didLeave = true
+                            group.leave()
+                        }
+                    }
                 default:
                     break
                 }
@@ -130,17 +133,23 @@ class BonjourBrowser: ObservableObject {
 
             connection.start(queue: .global())
 
-            // Timeout: if no response in 1.5s, skip it
-            DispatchQueue.global().asyncAfter(deadline: .now() + 1.5) {
-                if connection.state != .ready && connection.state != .cancelled {
-                    connection.cancel()
+            // Timeout
+            DispatchQueue.global().asyncAfter(deadline: .now() + 2) { [weak self] in
+                self?.probeQueue.sync {
+                    if !didLeave {
+                        didLeave = true
+                        group.leave()
+                    }
                 }
+                connection.cancel()
             }
         }
 
         group.notify(queue: .main) { [weak self] in
-            self?.sessions = reachable
-            self?.probeConnections.removeAll()
+            guard let self = self else { return }
+            // Only apply results if this is still the latest probe batch
+            guard self.probeGeneration == currentGen else { return }
+            self.sessions = reachable
         }
     }
 
@@ -149,8 +158,6 @@ class BonjourBrowser: ObservableObject {
         reprobeTimer = nil
         browser?.cancel()
         browser = nil
-        for conn in probeConnections { conn.cancel() }
-        probeConnections.removeAll()
         lastCandidates.removeAll()
     }
 }
