@@ -58,8 +58,9 @@ export async function startApp(opts) {
   server.onConnect((ws) => {
     server.send(ws, vt.getState());
     const scrollback = vt.getScrollbackBuffer();
-    if (scrollback.length > 0) {
-      server.send(ws, { type: 'scrollback', lines: scrollback });
+    // Send scrollback in chunks of 100 lines to avoid exceeding message size limits
+    for (let i = 0; i < scrollback.length; i += 100) {
+      server.send(ws, { type: 'scrollback', lines: scrollback.slice(i, i + 100) });
     }
   });
 

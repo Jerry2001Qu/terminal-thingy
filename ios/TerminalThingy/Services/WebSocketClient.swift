@@ -46,6 +46,7 @@ class WebSocketClient: NSObject, ObservableObject {
         let newSession = URLSession(configuration: .default, delegate: self, delegateQueue: nil)
         session = newSession
         task = newSession.webSocketTask(with: url)
+        task?.maximumMessageSize = 16 * 1024 * 1024 // 16MB — state + scrollback can be large
         task?.resume()
     }
 
