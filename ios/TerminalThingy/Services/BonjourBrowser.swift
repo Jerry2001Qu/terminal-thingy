@@ -15,6 +15,7 @@ struct DiscoveredSession: Identifiable {
 class BonjourBrowser: ObservableObject {
     @Published var sessions: [DiscoveredSession] = []
     private var browser: NWBrowser?
+    private var probeConnections: [NWConnection] = []
 
     func start() {
         let descriptor = NWBrowser.Descriptor.bonjourWithTXTRecord(
@@ -26,7 +27,7 @@ class BonjourBrowser: ObservableObject {
 
         browser = NWBrowser(for: descriptor, using: params)
         browser?.browseResultsChangedHandler = { [weak self] results, _ in
-            let sessions = results.compactMap { result -> DiscoveredSession? in
+            let candidates = results.compactMap { result -> DiscoveredSession? in
                 guard case .bonjour(let record) = result.metadata else { return nil }
 
                 let hostname = record.string(for: "hostname") ?? "Unknown"
@@ -56,30 +57,83 @@ class BonjourBrowser: ObservableObject {
                     deviceId: deviceId
                 )
             }
-            // Deduplicate by deviceId — keep only the latest entry per device
+
+            // Deduplicate by deviceId
             var seen: [String: DiscoveredSession] = [:]
             var deduped: [DiscoveredSession] = []
-            for session in sessions {
+            for session in candidates {
                 if session.deviceId.isEmpty {
-                    // No deviceId — can't deduplicate, keep it
                     deduped.append(session)
                 } else if seen[session.deviceId] == nil {
                     seen[session.deviceId] = session
                     deduped.append(session)
                 }
-                // else: duplicate deviceId, skip (stale entry)
             }
 
-            DispatchQueue.main.async {
-                self?.sessions = deduped
-            }
+            // Probe each session to check if it's actually reachable
+            self?.probeAndFilter(deduped)
         }
         browser?.start(queue: .global())
+    }
+
+    /// Try a quick TCP connection to each session. Only show reachable ones.
+    private func probeAndFilter(_ candidates: [DiscoveredSession]) {
+        // Cancel any in-flight probes
+        for conn in probeConnections { conn.cancel() }
+        probeConnections.removeAll()
+
+        guard !candidates.isEmpty else {
+            DispatchQueue.main.async { self.sessions = [] }
+            return
+        }
+
+        var reachable: [DiscoveredSession] = []
+        let group = DispatchGroup()
+
+        for session in candidates {
+            group.enter()
+            let endpoint = NWEndpoint.hostPort(
+                host: NWEndpoint.Host(session.ip),
+                port: NWEndpoint.Port(integerLiteral: UInt16(session.port))
+            )
+            let connection = NWConnection(to: endpoint, using: .tcp)
+            probeConnections.append(connection)
+
+            connection.stateUpdateHandler = { state in
+                switch state {
+                case .ready:
+                    // Port is open — session is alive
+                    reachable.append(session)
+                    connection.cancel()
+                    group.leave()
+                case .failed, .cancelled:
+                    group.leave()
+                default:
+                    break
+                }
+            }
+
+            connection.start(queue: .global())
+
+            // Timeout: if no response in 1.5s, skip it
+            DispatchQueue.global().asyncAfter(deadline: .now() + 1.5) {
+                if connection.state != .ready && connection.state != .cancelled {
+                    connection.cancel()
+                }
+            }
+        }
+
+        group.notify(queue: .main) { [weak self] in
+            self?.sessions = reachable
+            self?.probeConnections.removeAll()
+        }
     }
 
     func stop() {
         browser?.cancel()
         browser = nil
+        for conn in probeConnections { conn.cancel() }
+        probeConnections.removeAll()
     }
 }
 
