@@ -16,6 +16,8 @@ class BonjourBrowser: ObservableObject {
     @Published var sessions: [DiscoveredSession] = []
     private var browser: NWBrowser?
     private var probeConnections: [NWConnection] = []
+    private var lastCandidates: [DiscoveredSession] = []
+    private var reprobeTimer: Timer?
 
     func start() {
         let descriptor = NWBrowser.Descriptor.bonjourWithTXTRecord(
@@ -70,10 +72,17 @@ class BonjourBrowser: ObservableObject {
                 }
             }
 
-            // Probe each session to check if it's actually reachable
+            // Save candidates for periodic re-probing
+            self?.lastCandidates = deduped
             self?.probeAndFilter(deduped)
         }
         browser?.start(queue: .global())
+
+        // Re-probe every 5 seconds to catch dead sessions
+        reprobeTimer = Timer.scheduledTimer(withTimeInterval: 5, repeats: true) { [weak self] _ in
+            guard let self = self, !self.lastCandidates.isEmpty else { return }
+            self.probeAndFilter(self.lastCandidates)
+        }
     }
 
     /// Try a quick TCP connection to each session. Only show reachable ones.
@@ -130,10 +139,13 @@ class BonjourBrowser: ObservableObject {
     }
 
     func stop() {
+        reprobeTimer?.invalidate()
+        reprobeTimer = nil
         browser?.cancel()
         browser = nil
         for conn in probeConnections { conn.cancel() }
         probeConnections.removeAll()
+        lastCandidates.removeAll()
     }
 }
 
