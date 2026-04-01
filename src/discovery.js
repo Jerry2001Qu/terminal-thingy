@@ -22,19 +22,25 @@ export class Discovery {
     const url = `ws://${ip}:${this.port}${params}`;
 
     if (!this.noBonjour) {
-      this.bonjour = new Bonjour();
-      this.service = this.bonjour.publish({
-        name: `terminal-thingy-${os.hostname()}`,
-        type: 'terminal-thingy',
-        port: this.port,
-        txt: {
-          salt: this.salt || '',
-          shell: this.shell,
-          hostname: os.hostname(),
-          ip: ip,
-          port: String(this.port),
-        },
-      });
+      try {
+        this.bonjour = new Bonjour();
+        this.service = this.bonjour.publish({
+          name: `terminal-thingy-${os.hostname()}-${this.port}`,
+          type: 'terminal-thingy',
+          port: this.port,
+          txt: {
+            salt: this.salt || '',
+            shell: this.shell,
+            hostname: os.hostname(),
+            ip: ip,
+            port: String(this.port),
+          },
+        });
+      } catch {
+        console.error('  Warning: Bonjour advertisement failed. Use QR code or --no-bonjour.');
+        this.bonjour = null;
+        this.service = null;
+      }
     }
 
     return { ip, url };
