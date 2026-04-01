@@ -8,7 +8,7 @@ struct TerminalView: View {
     @StateObject private var client = WebSocketClient()
     @State private var isScrolledToBottom = true
     @State private var hasNewOutput = false
-    @State private var keepScreenAwake = true
+    @AppStorage("keepScreenAwake") private var keepScreenAwake = true
 
     var body: some View {
         GeometryReader { geo in
@@ -86,7 +86,7 @@ struct TerminalView: View {
                 }
             }
         }
-        .background(.black)
+        .background(Color(.systemBackground))
         .navigationTitle(target.ip)
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {

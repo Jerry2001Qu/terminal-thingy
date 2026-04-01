@@ -9,6 +9,7 @@ struct DiscoveryView: View {
     @State private var selectedSession: DiscoveredSession?
     @State private var connectionTarget: ConnectionTarget?
     @State private var showConnectionTarget = false
+    @State private var showSettings = false
 
     private var knownSessions: [(DiscoveredSession, PairedDevice)] {
         browser.sessions.compactMap { session in
@@ -98,6 +99,13 @@ struct DiscoveryView: View {
         }
         .navigationTitle("Terminal Thingy")
         .toolbar {
+            ToolbarItem(placement: .navigationBarLeading) {
+                Button {
+                    showSettings = true
+                } label: {
+                    Image(systemName: "gearshape")
+                }
+            }
             ToolbarItem(placement: .primaryAction) {
                 if DataScannerViewController.isSupported {
                     Button {
@@ -107,6 +115,9 @@ struct DiscoveryView: View {
                     }
                 }
             }
+        }
+        .sheet(isPresented: $showSettings) {
+            SettingsView()
         }
         .sheet(isPresented: $showQRScanner) {
             QRScannerView { urlString in

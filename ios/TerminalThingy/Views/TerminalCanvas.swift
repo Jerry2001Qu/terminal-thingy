@@ -84,8 +84,11 @@ final class TerminalCoreTextView: UIView {
         let cellH = metrics.cellHeight
         let fontSize = metrics.fontSize
 
-        // Fill background black
-        context.setFillColor(UIColor.black.cgColor)
+        // Fill background based on appearance
+        let isDark = traitCollection.userInterfaceStyle == .dark
+        let defaultBg = isDark ? UIColor.black.cgColor : UIColor.white.cgColor
+        let defaultFg = isDark ? UIColor.white.cgColor : UIColor.black.cgColor
+        context.setFillColor(defaultBg)
         context.fill(rect)
 
         // Core Text has origin at bottom-left; flip context so origin is top-left
@@ -137,9 +140,9 @@ final class TerminalCoreTextView: UIView {
 
                 let fgColor: CGColor
                 if let fg = cell.fg {
-                    fgColor = cgColor(for: fg, defaultColor: UIColor.white.cgColor) ?? UIColor.white.cgColor
+                    fgColor = cgColor(for: fg, defaultColor: defaultFg) ?? defaultFg
                 } else {
-                    fgColor = UIColor.white.cgColor
+                    fgColor = defaultFg
                 }
 
                 let ctFont: CTFont
