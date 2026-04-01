@@ -4,8 +4,10 @@ import SwiftUI
 struct TerminalThingyApp: App {
     var body: some Scene {
         WindowGroup {
-            Text("Terminal Thingy")
-                .font(.largeTitle)
+            NavigationStack {
+                DiscoveryView()
+            }
+            .preferredColorScheme(.dark)
         }
     }
 }
