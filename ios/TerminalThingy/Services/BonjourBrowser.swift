@@ -59,27 +59,15 @@ class BonjourBrowser: ObservableObject {
                 )
             }
 
-            // Deduplicate by deviceId
-            var seen: [String: DiscoveredSession] = [:]
-            var deduped: [DiscoveredSession] = []
-            for session in candidates {
-                if session.deviceId.isEmpty {
-                    deduped.append(session)
-                } else if seen[session.deviceId] == nil {
-                    seen[session.deviceId] = session
-                    deduped.append(session)
-                }
-            }
-
             DispatchQueue.main.async {
-                self?.lastCandidates = deduped
+                self?.lastCandidates = candidates
                 // Remove any sessions that are no longer in Bonjour results
                 self?.sessions.removeAll { existing in
-                    !deduped.contains { $0.ip == existing.ip && $0.port == existing.port }
+                    !candidates.contains { $0.ip == existing.ip && $0.port == existing.port }
                 }
             }
             // Probe each individually — add to list as each succeeds
-            self?.probeEach(deduped)
+            self?.probeEach(candidates)
         }
         browser?.start(queue: .global())
 
