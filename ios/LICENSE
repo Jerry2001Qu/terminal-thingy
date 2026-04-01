@@ -1,0 +1,22 @@
+Source Available License
+
+Copyright (c) 2026 Jerry Qu
+
+The source code in this directory (the iOS app) is made available for
+reference, personal use, and contribution purposes only.
+
+You MAY:
+- View and study the source code
+- Build and run the app for personal use
+- Submit pull requests and contributions (which will be licensed under these same terms)
+
+You MAY NOT:
+- Publish or distribute the app (or a modified version) on any app store,
+  marketplace, or distribution platform without written permission from the
+  copyright holder
+- Use the source code to create a competing product or service
+
+The CLI tool in the root of this repository is separately licensed under the
+MIT License.
+
+For permissions beyond this license, contact the copyright holder.

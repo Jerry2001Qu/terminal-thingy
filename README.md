@@ -70,4 +70,6 @@ To build from source:
 
 ## License
 
-MIT
+CLI: MIT License. See [LICENSE](LICENSE).
+
+iOS app: Source available for personal use and contributions. See [ios/LICENSE](ios/LICENSE).
