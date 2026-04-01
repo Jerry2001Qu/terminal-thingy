@@ -1,4 +1,4 @@
-import Bonjour from 'bonjour-service';
+import { Bonjour } from 'bonjour-service';
 import qrcode from 'qrcode-terminal';
 import os from 'node:os';
 import path from 'node:path';
