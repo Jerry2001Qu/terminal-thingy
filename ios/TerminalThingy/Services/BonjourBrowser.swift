@@ -56,8 +56,22 @@ class BonjourBrowser: ObservableObject {
                     deviceId: deviceId
                 )
             }
+            // Deduplicate by deviceId — keep only the latest entry per device
+            var seen: [String: DiscoveredSession] = [:]
+            var deduped: [DiscoveredSession] = []
+            for session in sessions {
+                if session.deviceId.isEmpty {
+                    // No deviceId — can't deduplicate, keep it
+                    deduped.append(session)
+                } else if seen[session.deviceId] == nil {
+                    seen[session.deviceId] = session
+                    deduped.append(session)
+                }
+                // else: duplicate deviceId, skip (stale entry)
+            }
+
             DispatchQueue.main.async {
-                self?.sessions = sessions
+                self?.sessions = deduped
             }
         }
         browser?.start(queue: .global())
