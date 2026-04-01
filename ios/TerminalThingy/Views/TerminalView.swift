@@ -89,6 +89,7 @@ struct TerminalView: View {
         .background(Color(.systemBackground))
         .navigationTitle(target.ip)
         .navigationBarTitleDisplayMode(.inline)
+        .toolbarBackground(.visible, for: .navigationBar)
         .toolbar {
             ToolbarItem(placement: .principal) {
                 connectionStatusView
