@@ -92,6 +92,10 @@ struct DiscoveryView: View {
                 }
             }
         }
+        .refreshable {
+            browser.probeNow()
+            try? await Task.sleep(nanoseconds: 2_500_000_000) // Wait for probes to complete
+        }
         .navigationTitle("Terminal Thingy")
         .toolbar {
             ToolbarItem(placement: .primaryAction) {

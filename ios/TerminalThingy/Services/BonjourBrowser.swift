@@ -153,6 +153,11 @@ class BonjourBrowser: ObservableObject {
         }
     }
 
+    func probeNow() {
+        guard !lastCandidates.isEmpty else { return }
+        probeAndFilter(lastCandidates)
+    }
+
     func stop() {
         reprobeTimer?.invalidate()
         reprobeTimer = nil
