@@ -73,68 +73,96 @@ class BonjourBrowser: ObservableObject {
 
             DispatchQueue.main.async {
                 self?.lastCandidates = deduped
-                // Show all candidates immediately so the list isn't empty
-                self?.sessions = deduped
+                // Remove any sessions that are no longer in Bonjour results
+                self?.sessions.removeAll { existing in
+                    !deduped.contains { $0.ip == existing.ip && $0.port == existing.port }
+                }
             }
-            // Then filter out dead ones in the background
-            self?.probeAndRemoveDead(deduped)
+            // Probe each individually — add to list as each succeeds
+            self?.probeEach(deduped)
         }
         browser?.start(queue: .global())
 
         // Re-probe every 5 seconds to remove dead sessions
         reprobeTimer = Timer.scheduledTimer(withTimeInterval: 5, repeats: true) { [weak self] _ in
             guard let self = self, !self.lastCandidates.isEmpty else { return }
-            self.probeAndRemoveDead(self.lastCandidates)
+            self.reprobeExisting()
         }
     }
 
-    /// Probe each candidate. Remove unreachable ones from the published sessions list.
-    private func probeAndRemoveDead(_ candidates: [DiscoveredSession]) {
+    /// Probe each candidate individually. Add to sessions as soon as it responds.
+    private func probeEach(_ candidates: [DiscoveredSession]) {
         for session in candidates {
-            let endpoint = NWEndpoint.hostPort(
-                host: NWEndpoint.Host(session.ip),
-                port: NWEndpoint.Port(integerLiteral: UInt16(session.port))
-            )
-            let connection = NWConnection(to: endpoint, using: .tcp)
-            var resolved = false
-
-            connection.stateUpdateHandler = { [weak self] state in
-                guard !resolved else { return }
-                switch state {
-                case .ready:
-                    // Alive — keep it in the list (it's already there)
-                    resolved = true
-                    connection.cancel()
-                case .failed:
-                    // Dead — remove from list
-                    resolved = true
-                    connection.cancel()
+            // Skip if already in the list
+            if sessions.contains(where: { $0.ip == session.ip && $0.port == session.port }) {
+                continue
+            }
+            probe(session) { alive in
+                if alive {
                     DispatchQueue.main.async {
-                        self?.sessions.removeAll { $0.ip == session.ip && $0.port == session.port }
+                        // Double-check it's not already added
+                        if !self.sessions.contains(where: { $0.ip == session.ip && $0.port == session.port }) {
+                            self.sessions.append(session)
+                        }
                     }
-                default:
-                    break
                 }
             }
+        }
+    }
 
-            connection.start(queue: .global())
+    /// Re-probe sessions already in the list. Remove any that are now dead.
+    private func reprobeExisting() {
+        for session in sessions {
+            probe(session) { alive in
+                if !alive {
+                    DispatchQueue.main.async {
+                        self.sessions.removeAll { $0.ip == session.ip && $0.port == session.port }
+                    }
+                }
+            }
+        }
+        // Also probe any candidates not yet in the list (new sessions)
+        probeEach(lastCandidates)
+    }
 
-            // Timeout — if no response in 2s, assume dead
-            DispatchQueue.global().asyncAfter(deadline: .now() + 2) { [weak self] in
-                guard !resolved else { return }
+    /// TCP probe a single session. Calls completion with true (alive) or false (dead).
+    private func probe(_ session: DiscoveredSession, completion: @escaping (Bool) -> Void) {
+        let endpoint = NWEndpoint.hostPort(
+            host: NWEndpoint.Host(session.ip),
+            port: NWEndpoint.Port(integerLiteral: UInt16(session.port))
+        )
+        let connection = NWConnection(to: endpoint, using: .tcp)
+        var resolved = false
+
+        connection.stateUpdateHandler = { state in
+            guard !resolved else { return }
+            switch state {
+            case .ready:
                 resolved = true
                 connection.cancel()
-                DispatchQueue.main.async {
-                    self?.sessions.removeAll { $0.ip == session.ip && $0.port == session.port }
-                }
+                completion(true)
+            case .failed:
+                resolved = true
+                connection.cancel()
+                completion(false)
+            default:
+                break
             }
+        }
+
+        connection.start(queue: .global())
+
+        DispatchQueue.global().asyncAfter(deadline: .now() + 2) {
+            guard !resolved else { return }
+            resolved = true
+            connection.cancel()
+            completion(false)
         }
     }
 
     func probeNow() {
         guard !lastCandidates.isEmpty else { return }
-        sessions = lastCandidates
-        probeAndRemoveDead(lastCandidates)
+        reprobeExisting()
     }
 
     func stop() {
