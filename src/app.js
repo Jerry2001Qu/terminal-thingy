@@ -152,6 +152,7 @@ export async function startApp(opts) {
 
   process.on('SIGINT', () => handleSignal('SIGINT'));
   process.on('SIGTERM', () => handleSignal('SIGTERM'));
+  process.on('SIGHUP', () => handleSignal('SIGHUP'));
 
   // Handle uncaught errors — always restore terminal
   process.on('uncaughtException', (err) => {
