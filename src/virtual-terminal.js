@@ -61,28 +61,32 @@ export class VirtualTerminal {
       }
       cells.push({
         char: cell.getChars() || ' ',
-        fg: this._resolveColor(cell.getFgColor(), cell.getFgColorMode()),
-        bg: this._resolveColor(cell.getBgColor(), cell.getBgColorMode()),
-        bold: cell.isBold() === 1,
-        italic: cell.isItalic() === 1,
-        underline: cell.isUnderline() === 1,
+        fg: this._resolveCellColor(cell, 'fg'),
+        bg: this._resolveCellColor(cell, 'bg'),
+        bold: !!cell.isBold(),
+        italic: !!cell.isItalic(),
+        underline: !!cell.isUnderline(),
       });
     }
     return cells;
   }
 
-  _resolveColor(color, mode) {
-    if (mode === 0) return null; // Default color
-    if (mode === 1) return PALETTE_16[color] || null; // 16-color palette
-    if (mode === 2) return this._palette256(color); // 256-color palette
-    if (mode === 3) {
-      // RGB: color is packed as (r << 16) | (g << 8) | b
+  _resolveCellColor(cell, type) {
+    const isDefault = type === 'fg' ? cell.isFgDefault() : cell.isBgDefault();
+    if (isDefault) return null;
+
+    const isRGB = type === 'fg' ? cell.isFgRGB() : cell.isBgRGB();
+    const color = type === 'fg' ? cell.getFgColor() : cell.getBgColor();
+
+    if (isRGB) {
       const r = (color >> 16) & 0xff;
       const g = (color >> 8) & 0xff;
       const b = color & 0xff;
       return `#${r.toString(16).padStart(2, '0')}${g.toString(16).padStart(2, '0')}${b.toString(16).padStart(2, '0')}`;
     }
-    return null;
+
+    // Palette color (covers both 16-color and 256-color)
+    return this._palette256(color);
   }
 
   _palette256(index) {
