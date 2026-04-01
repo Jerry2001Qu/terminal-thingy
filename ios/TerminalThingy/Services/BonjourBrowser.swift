@@ -17,8 +17,6 @@ class BonjourBrowser: ObservableObject {
     private var browser: NWBrowser?
     private var lastCandidates: [DiscoveredSession] = []
     private var reprobeTimer: Timer?
-    private var probeGeneration = 0
-    private let probeQueue = DispatchQueue(label: "terminal-thingy.probe")
 
     func start() {
         let descriptor = NWBrowser.Descriptor.bonjourWithTXTRecord(
@@ -73,58 +71,46 @@ class BonjourBrowser: ObservableObject {
                 }
             }
 
-            self?.lastCandidates = deduped
-            self?.probeAndFilter(deduped)
+            DispatchQueue.main.async {
+                self?.lastCandidates = deduped
+                // Show all candidates immediately so the list isn't empty
+                self?.sessions = deduped
+            }
+            // Then filter out dead ones in the background
+            self?.probeAndRemoveDead(deduped)
         }
         browser?.start(queue: .global())
 
-        // Re-probe every 5 seconds to catch dead sessions
+        // Re-probe every 5 seconds to remove dead sessions
         reprobeTimer = Timer.scheduledTimer(withTimeInterval: 5, repeats: true) { [weak self] _ in
             guard let self = self, !self.lastCandidates.isEmpty else { return }
-            self.probeAndFilter(self.lastCandidates)
+            self.probeAndRemoveDead(self.lastCandidates)
         }
     }
 
-    private func probeAndFilter(_ candidates: [DiscoveredSession]) {
-        // Increment generation — results from older probes will be ignored
-        probeQueue.sync { probeGeneration += 1 }
-        let currentGen = probeGeneration
-
-        guard !candidates.isEmpty else {
-            DispatchQueue.main.async { self.sessions = [] }
-            return
-        }
-
-        let group = DispatchGroup()
-        var reachable: [DiscoveredSession] = []
-
+    /// Probe each candidate. Remove unreachable ones from the published sessions list.
+    private func probeAndRemoveDead(_ candidates: [DiscoveredSession]) {
         for session in candidates {
-            group.enter()
             let endpoint = NWEndpoint.hostPort(
                 host: NWEndpoint.Host(session.ip),
                 port: NWEndpoint.Port(integerLiteral: UInt16(session.port))
             )
             let connection = NWConnection(to: endpoint, using: .tcp)
-            var didLeave = false
+            var resolved = false
 
             connection.stateUpdateHandler = { [weak self] state in
-                guard let self = self else { return }
+                guard !resolved else { return }
                 switch state {
                 case .ready:
-                    self.probeQueue.sync {
-                        if !didLeave {
-                            reachable.append(session)
-                            didLeave = true
-                            group.leave()
-                        }
-                    }
+                    // Alive — keep it in the list (it's already there)
+                    resolved = true
                     connection.cancel()
-                case .failed, .cancelled:
-                    self.probeQueue.sync {
-                        if !didLeave {
-                            didLeave = true
-                            group.leave()
-                        }
+                case .failed:
+                    // Dead — remove from list
+                    resolved = true
+                    connection.cancel()
+                    DispatchQueue.main.async {
+                        self?.sessions.removeAll { $0.ip == session.ip && $0.port == session.port }
                     }
                 default:
                     break
@@ -133,29 +119,22 @@ class BonjourBrowser: ObservableObject {
 
             connection.start(queue: .global())
 
-            // Timeout
+            // Timeout — if no response in 2s, assume dead
             DispatchQueue.global().asyncAfter(deadline: .now() + 2) { [weak self] in
-                self?.probeQueue.sync {
-                    if !didLeave {
-                        didLeave = true
-                        group.leave()
-                    }
-                }
+                guard !resolved else { return }
+                resolved = true
                 connection.cancel()
+                DispatchQueue.main.async {
+                    self?.sessions.removeAll { $0.ip == session.ip && $0.port == session.port }
+                }
             }
-        }
-
-        group.notify(queue: .main) { [weak self] in
-            guard let self = self else { return }
-            // Only apply results if this is still the latest probe batch
-            guard self.probeGeneration == currentGen else { return }
-            self.sessions = reachable
         }
     }
 
     func probeNow() {
         guard !lastCandidates.isEmpty else { return }
-        probeAndFilter(lastCandidates)
+        sessions = lastCandidates
+        probeAndRemoveDead(lastCandidates)
     }
 
     func stop() {
