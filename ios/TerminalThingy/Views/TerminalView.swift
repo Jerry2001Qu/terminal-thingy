@@ -42,8 +42,9 @@ struct TerminalView: View {
                     }
                     .onChange(of: grid.cells) { _ in
                         if isScrolledToBottom {
+                            let anchor: UnitPoint = grid.scrollbackLines.isEmpty ? .top : .bottom
                             withAnimation(.easeOut(duration: 0.1)) {
-                                proxy.scrollTo("viewport", anchor: .bottom)
+                                proxy.scrollTo("viewport", anchor: anchor)
                             }
                         } else {
                             hasNewOutput = true
@@ -67,8 +68,9 @@ struct TerminalView: View {
                         Button {
                             isScrolledToBottom = true
                             hasNewOutput = false
+                            let anchor: UnitPoint = grid.scrollbackLines.isEmpty ? .top : .bottom
                             withAnimation {
-                                proxy.scrollTo("viewport", anchor: .bottom)
+                                proxy.scrollTo("viewport", anchor: anchor)
                             }
                         } label: {
                             HStack {
