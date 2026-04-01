@@ -53,8 +53,13 @@ struct TerminalCanvas: View {
                     // Character
                     if cell.char != " " {
                         let fgColor = cell.fg.map { colorFromHex($0) } ?? .white
+                        // Use monospaced for ASCII, system font for symbols (better glyph coverage)
+                        let isASCII = cell.char.unicodeScalars.first.map { $0.value < 128 } ?? false
+                        let charFont = isASCII
+                            ? Font.system(size: fontSize, design: .monospaced)
+                            : Font.system(size: fontSize * 0.85)
                         var text = Text(cell.char)
-                            .font(font)
+                            .font(charFont)
                             .foregroundColor(fgColor)
                         if cell.bold {
                             text = text.bold()
