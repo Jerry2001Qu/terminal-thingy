@@ -1,0 +1,33 @@
+name: TerminalThingy
+options:
+  bundleIdPrefix: com.terminalthingy
+  deploymentTarget:
+    iOS: "16.0"
+  xcodeVersion: "15.0"
+settings:
+  base:
+    SWIFT_VERSION: "5.9"
+    TARGETED_DEVICE_FAMILY: "1"
+targets:
+  TerminalThingy:
+    type: application
+    platform: iOS
+    sources:
+      - path: TerminalThingy
+    settings:
+      base:
+        INFOPLIST_FILE: TerminalThingy/Info.plist
+        PRODUCT_BUNDLE_IDENTIFIER: com.terminalthingy.app
+        MARKETING_VERSION: "0.1.0"
+        CURRENT_PROJECT_VERSION: "1"
+        GENERATE_INFOPLIST_FILE: false
+  TerminalThingyTests:
+    type: bundle.unit-test
+    platform: iOS
+    sources:
+      - path: TerminalThingyTests
+    dependencies:
+      - target: TerminalThingy
+    settings:
+      base:
+        GENERATE_INFOPLIST_FILE: true

@@ -3,6 +3,8 @@ node_modules/
 *.tgz
 
 # iOS / Xcode
+*.xcodeproj/
+*.xcworkspace/
 *.xcuserdata
 build/
 DerivedData/
