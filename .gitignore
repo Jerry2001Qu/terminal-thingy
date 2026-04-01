@@ -1,0 +1,25 @@
+# Node
+node_modules/
+*.tgz
+
+# iOS / Xcode
+*.xcuserdata
+build/
+DerivedData/
+*.ipa
+*.dSYM.zip
+*.dSYM
+*.hmap
+*.swp
+.build/
+Pods/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Editor
+.vscode/
+.idea/
+*.swp
+*~
