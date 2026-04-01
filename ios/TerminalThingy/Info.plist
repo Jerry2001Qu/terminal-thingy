@@ -35,6 +35,8 @@
         <string>UIInterfaceOrientationLandscapeLeft</string>
         <string>UIInterfaceOrientationLandscapeRight</string>
     </array>
+    <key>ITSAppUsesNonExemptEncryption</key>
+    <false/>
     <key>NSLocalNetworkUsageDescription</key>
     <string>Discovers terminal-thingy sessions on your local network</string>
     <key>NSBonjourServices</key>
