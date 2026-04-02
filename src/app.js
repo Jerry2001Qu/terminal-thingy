@@ -80,12 +80,11 @@ export async function startApp(opts) {
   server.onResize((cols, rows) => {
     ptyManager.resize(cols, rows);
     vt.resize(cols, rows);
-    // Broadcast resize immediately so clients know dimensions changed
+    // Broadcast resize immediately so clients clear their grid
     server.broadcast({ type: 'resize', cols, rows });
-    // Delay state broadcast to let the shell redraw at the new size
-    setTimeout(() => {
-      server.broadcast(vt.getState());
-    }, 100);
+    // Send state after shell has time to redraw, plus a safety follow-up
+    setTimeout(() => server.broadcast(vt.getState()), 300);
+    setTimeout(() => server.broadcast(vt.getState()), 800);
   });
 
   // Spawn PTY
