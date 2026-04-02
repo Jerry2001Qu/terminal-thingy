@@ -45,5 +45,7 @@ class TerminalGrid: ObservableObject {
     func applyResize(_ resize: ResizeMessage) {
         cols = resize.cols
         rows = resize.rows
+        // Clear cells until fresh state arrives to avoid rendering stale content at new dimensions
+        cells = []
     }
 }

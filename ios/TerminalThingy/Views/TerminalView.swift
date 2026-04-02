@@ -83,6 +83,9 @@ struct TerminalView: View {
                             isScrolledToBottom = false
                         }
                     )
+                    .onTapGesture(count: 2) {
+                        showKeyboard.toggle()
+                    }
                     .simultaneousGesture(
                         MagnificationGesture()
                             .onEnded { scale in
