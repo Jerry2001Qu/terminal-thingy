@@ -136,6 +136,24 @@ class WebSocketClient: NSObject, ObservableObject {
         task?.send(.string(payload)) { _ in }
     }
 
+    func sendResize(cols: Int, rows: Int) {
+        guard state == .connected else { return }
+
+        let message: [String: Any] = ["type": "resize", "cols": cols, "rows": rows]
+        guard let jsonData = try? JSONSerialization.data(withJSONObject: message),
+              let jsonString = String(data: jsonData, encoding: .utf8) else { return }
+
+        let payload: String
+        if let key = key {
+            guard let encrypted = try? CryptoService.encrypt(jsonString.data(using: .utf8)!, key: key) else { return }
+            payload = encrypted
+        } else {
+            payload = jsonString
+        }
+
+        task?.send(.string(payload)) { _ in }
+    }
+
     func disconnect() {
         shouldReconnect = false
         task?.cancel(with: .normalClosure, reason: nil)

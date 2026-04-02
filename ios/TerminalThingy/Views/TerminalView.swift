@@ -9,11 +9,15 @@ struct TerminalView: View {
     @State private var isScrolledToBottom = true
     @State private var hasNewOutput = false
     @State private var showKeyboard = false
+    @State private var viewWidth: CGFloat = 0
     @AppStorage("keepScreenAwake") private var keepScreenAwake = true
 
     var body: some View {
         GeometryReader { geo in
             ZStack(alignment: .bottom) {
+                Color.clear
+                    .onAppear { viewWidth = geo.size.width }
+                    .onChange(of: geo.size) { _ in viewWidth = geo.size.width }
                 ScrollViewReader { proxy in
                     ScrollView {
                         VStack(spacing: 0) {
@@ -62,6 +66,17 @@ struct TerminalView: View {
                             isScrolledToBottom = false
                         }
                     )
+                    .simultaneousGesture(
+                        MagnificationGesture()
+                            .onEnded { scale in
+                                guard grid.cols > 0 else { return }
+                                // scale > 1 = pinch out = bigger text = fewer cols
+                                // scale < 1 = pinch in = smaller text = more cols
+                                let newCols = max(Int(CGFloat(grid.cols) / scale), 20)
+                                let rows = grid.rows > 0 ? grid.rows : 24
+                                client.sendResize(cols: newCols, rows: rows)
+                            }
+                    )
                     .onChange(of: showKeyboard) { _ in
                         // When keyboard appears/disappears, scroll to keep content visible
                         DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
@@ -109,6 +124,13 @@ struct TerminalView: View {
         .navigationBarTitleDisplayMode(.inline)
         .toolbarBackground(.visible, for: .navigationBar)
         .toolbar {
+            ToolbarItem(placement: .navigationBarLeading) {
+                Button {
+                    fitToPhone()
+                } label: {
+                    Image(systemName: "arrow.up.left.and.arrow.down.right")
+                }
+            }
             ToolbarItem(placement: .principal) {
                 connectionStatusView
             }
@@ -175,6 +197,14 @@ struct TerminalView: View {
         case .disconnected: return "Disconnected"
         case .sessionEnded: return "Session ended"
         }
+    }
+
+    private func fitToPhone() {
+        let width = viewWidth > 0 ? viewWidth : UIScreen.main.bounds.width
+        let charWidth: CGFloat = 6.0
+        let cols = max(Int(width / charWidth), 20)
+        let rows = grid.rows > 0 ? grid.rows : 24
+        client.sendResize(cols: cols, rows: rows)
     }
 
     private func setupClient() {

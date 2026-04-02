@@ -77,6 +77,14 @@ export async function startApp(opts) {
     ptyManager.write(data);
   });
 
+  server.onResize((cols, rows) => {
+    ptyManager.resize(cols, rows);
+    vt.resize(cols, rows);
+    // Broadcast the new size and state to all clients
+    server.broadcast({ type: 'resize', cols, rows });
+    server.broadcast(vt.getState());
+  });
+
   // Spawn PTY
   const ptyManager = new PtyManager({ shell });
   ptyManager.spawn(cols, rows);

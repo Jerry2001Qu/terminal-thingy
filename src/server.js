@@ -39,13 +39,15 @@ export class StreamServer {
         ws.on('error', () => this.clients.delete(ws));
 
         ws.on('message', (raw) => {
-          if (!this._onInput) return;
           try {
             const text = raw.toString();
             const json = this.key ? decrypt(text, this.key) : text;
             const msg = JSON.parse(json);
             if (msg.type === 'input' && typeof msg.data === 'string') {
-              this._onInput(msg.data);
+              if (this._onInput) this._onInput(msg.data);
+            }
+            if (msg.type === 'resize' && typeof msg.cols === 'number' && typeof msg.rows === 'number') {
+              if (this._onResize) this._onResize(msg.cols, msg.rows);
             }
           } catch {
             // Invalid message, ignore
@@ -63,6 +65,10 @@ export class StreamServer {
 
   onInput(handler) {
     this._onInput = handler;
+  }
+
+  onResize(handler) {
+    this._onResize = handler;
   }
 
   broadcast(message) {
