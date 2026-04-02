@@ -13,7 +13,7 @@ struct TerminalView: View {
     @AppStorage("keepScreenAwake") private var keepScreenAwake = true
     @AppStorage("fitFontSize") private var fitFontSize: Double = 10.0
     @AppStorage("idleGlowEnabled") private var idleGlowEnabled = true
-    @AppStorage("idleGlowSeconds") private var idleGlowSeconds: Double = 30
+    @AppStorage("idleGlowSeconds") private var idleGlowSeconds: Double = 8
     @State private var lastActivityTime = Date()
     @State private var idleIntensity: Double = 0
     @State private var idleTimer: Timer?

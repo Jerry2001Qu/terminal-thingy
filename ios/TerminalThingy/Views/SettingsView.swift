@@ -5,7 +5,7 @@ struct SettingsView: View {
     @AppStorage("keepScreenAwake") private var keepScreenAwake: Bool = true
     @AppStorage("fitFontSize") private var fitFontSize: Double = 10.0
     @AppStorage("idleGlowEnabled") private var idleGlowEnabled = true
-    @AppStorage("idleGlowSeconds") private var idleGlowSeconds: Double = 30
+    @AppStorage("idleGlowSeconds") private var idleGlowSeconds: Double = 8
     @Environment(\.dismiss) private var dismiss
 
     var body: some View {
@@ -52,7 +52,7 @@ struct SettingsView: View {
                                 Text("\(Int(idleGlowSeconds))s")
                                     .foregroundStyle(.secondary)
                             }
-                            Slider(value: $idleGlowSeconds, in: 5...120, step: 5)
+                            Slider(value: $idleGlowSeconds, in: 1...120, step: 1)
                         }
                         .padding(.vertical, 4)
                     }
