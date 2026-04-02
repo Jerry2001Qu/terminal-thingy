@@ -151,21 +151,23 @@ struct TerminalView: View {
         .navigationBarTitleDisplayMode(.inline)
         .toolbarBackground(.visible, for: .navigationBar)
         .toolbar {
-            ToolbarItem(placement: .navigationBarLeading) {
-                Button {
-                    fitToPhone()
-                } label: {
-                    Image(systemName: "arrow.up.left.and.arrow.down.right")
-                }
-            }
             ToolbarItem(placement: .principal) {
                 connectionStatusView
             }
             ToolbarItem(placement: .primaryAction) {
-                Button {
-                    showKeyboard.toggle()
-                } label: {
-                    Image(systemName: showKeyboard ? "keyboard.fill" : "keyboard")
+                HStack(spacing: 16) {
+                    if !isAtFitSize {
+                        Button {
+                            fitToPhone()
+                        } label: {
+                            Image(systemName: "arrow.up.left.and.arrow.down.right")
+                        }
+                    }
+                    Button {
+                        showKeyboard.toggle()
+                    } label: {
+                        Image(systemName: showKeyboard ? "keyboard.fill" : "keyboard")
+                    }
                 }
             }
         }
@@ -226,6 +228,12 @@ struct TerminalView: View {
         case .disconnected: return "Disconnected"
         case .sessionEnded: return "Session ended"
         }
+    }
+
+    private var isAtFitSize: Bool {
+        let width = viewWidth > 0 ? viewWidth : UIScreen.main.bounds.width
+        let targetCols = CellMetrics.colsForWidth(width, fontSize: CGFloat(fitFontSize))
+        return grid.cols == targetCols
     }
 
     private func fitToPhone() {
