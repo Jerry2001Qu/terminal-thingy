@@ -47,7 +47,7 @@ struct IdleGlowView: View {
                         )
 
                     // Traveling wave blobs — orbit clockwise, speed scales with intensity
-                    let speed = 0.15 + intensity * 0.5
+                    let speed = 0.05 + intensity * 0.3
                     ForEach(0..<6, id: \.self) { idx in
                         let blobPhase = phase * speed + Double(idx) * (.pi * 2 / 6)
                         let pos = perimeterPosition(phase: blobPhase, in: geo.size)
@@ -71,7 +71,7 @@ struct IdleGlowView: View {
                     }
 
                     // Counter-rotating blobs
-                    let counterSpeed = 0.1 + intensity * 0.3
+                    let counterSpeed = 0.03 + intensity * 0.2
                     ForEach(0..<4, id: \.self) { idx in
                         let blobPhase = -phase * counterSpeed + Double(idx) * (.pi * 2 / 4) + 1.0
                         let pos = perimeterPosition(phase: blobPhase, in: geo.size)
@@ -99,14 +99,14 @@ struct IdleGlowView: View {
 
     // Continuous wave — no looping, just uses real time
     private func wave(_ phase: Double, offset: Double) -> Double {
-        let a = sin(phase * 0.8 + offset) * 0.2 + 0.8
-        let b = sin(phase * 0.47 + offset * 0.5) * 0.1 + 0.9
+        let a = sin(phase * 0.3 + offset) * 0.2 + 0.8
+        let b = sin(phase * 0.17 + offset * 0.5) * 0.1 + 0.9
         return a * b
     }
 
     private func blobWave(_ phase: Double, idx: Int) -> Double {
         let offset = Double(idx) * 1.3
-        return sin(phase * 0.6 + offset) * 0.3 + 0.7
+        return sin(phase * 0.23 + offset) * 0.3 + 0.7
     }
 
     private func perimeterPosition(phase: Double, in size: CGSize) -> CGPoint {

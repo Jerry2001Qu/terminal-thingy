@@ -19,7 +19,6 @@ struct TerminalView: View {
     @State private var idleIntensity: Double = 0
     @State private var waitingForOutput = false
     @State private var hasAutoResized = false
-    @State private var resizeDebounce: DispatchWorkItem?
 
     var body: some View {
         GeometryReader { geo in
@@ -27,16 +26,13 @@ struct TerminalView: View {
                 Color.clear
                     .onAppear { viewWidth = geo.size.width }
                     .onChange(of: geo.size) { _ in
-                        viewWidth = geo.size.width
-                        // Debounce: wait for rotation to finish before sending resize
-                        resizeDebounce?.cancel()
-                        let work = DispatchWorkItem {
+                        let newWidth = geo.size.width
+                        if newWidth != viewWidth {
+                            viewWidth = newWidth
                             if autoResize && client.state == .connected {
                                 fitToPhone()
                             }
                         }
-                        resizeDebounce = work
-                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.4, execute: work)
                     }
                 ScrollViewReader { proxy in
                     ScrollView {
