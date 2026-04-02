@@ -15,6 +15,13 @@ struct TerminalView: View {
     @AppStorage("idleGlowEnabled") private var idleGlowEnabled = true
     @AppStorage("idleGlowSeconds") private var idleGlowSeconds: Double = 8
     @AppStorage("autoResize") private var autoResize = true
+    @AppStorage("voiceCommandsEnabled") private var voiceCommandsEnabled = false
+    @AppStorage("alwaysListening") private var alwaysListening = false
+    @AppStorage("wakeWord") private var wakeWord = "terminal"
+    @AppStorage("voiceTimeout") private var voiceTimeout: Double = 30
+    @AppStorage("voiceLingerTime") private var voiceLingerTime: Double = 10
+    @AppStorage("allowServerRecognition") private var allowServerRecognition = false
+    @StateObject private var speechService = SpeechCommandService()
     @State private var lastActivityTime = Date()
     @State private var idleIntensity: Double = 0
     @State private var waitingForOutput = false
@@ -155,9 +162,16 @@ struct TerminalView: View {
             }
         }
         .overlay {
-            IdleGlowView(intensity: idleGlowEnabled ? idleIntensity : 0)
-                .allowsHitTesting(false)
-                .ignoresSafeArea(edges: [.bottom, .leading, .trailing])
+            ZStack {
+                IdleGlowView(intensity: idleGlowEnabled ? idleIntensity : 0)
+                    .allowsHitTesting(false)
+                    .ignoresSafeArea(edges: [.bottom, .leading, .trailing])
+
+                if speechService.isActive {
+                    VoiceIndicatorView(speechService: speechService)
+                        .allowsHitTesting(false)
+                }
+            }
         }
         .background(Color(.systemBackground))
         .navigationTitle(target.ip)
@@ -175,6 +189,21 @@ struct TerminalView: View {
                             fitToPhone()
                         } label: {
                             Image(systemName: "arrow.up.left.and.arrow.down.right")
+                        }
+                    }
+                    if voiceCommandsEnabled && !alwaysListening {
+                        Button {
+                            if speechService.isListening {
+                                speechService.stopLingering()
+                                speechService.stopListening()
+                            } else {
+                                speechService.startListening(wakeWord: wakeWord, voiceTimeout: voiceTimeout, lingerTime: voiceLingerTime, allowServer: allowServerRecognition)
+                                speechService.startLingering()
+                            }
+                        } label: {
+                            Image(systemName: speechService.isListening ? "mic.fill" : "mic.slash")
+                                .font(.body)
+                                .foregroundStyle(speechService.isListening ? Color(red: 0.25, green: 0.55, blue: 1.0) : .secondary)
                         }
                     }
                     Button {
@@ -207,30 +236,35 @@ struct TerminalView: View {
                 UIApplication.shared.isIdleTimerDisabled = true
             }
             setupClient()
+            setupVoiceCommands()
             client.connect(url: target.websocketURL, key: target.encryptionKey)
         }
         .onDisappear {
             UIApplication.shared.isIdleTimerDisabled = false
             client.disconnect()
+            speechService.stopListening()
         }
         .onReceive(Timer.publish(every: 0.5, on: .main, in: .common).autoconnect()) { _ in
             guard idleGlowEnabled else {
                 if idleIntensity > 0 {
                     withAnimation(.easeOut(duration: 0.5)) { idleIntensity = 0 }
                 }
+                if speechService.isListening { speechService.stopListening() }
                 return
             }
             let elapsed = Date().timeIntervalSince(lastActivityTime)
             if elapsed > idleGlowSeconds && idleIntensity == 0 && !waitingForOutput {
-                // Quick pop to baseline
                 withAnimation(.easeIn(duration: 0.8)) {
                     idleIntensity = 0.2
                 }
-                // Then slow ramp to full
                 DispatchQueue.main.asyncAfter(deadline: .now() + 0.8) {
                     withAnimation(.easeIn(duration: 30)) {
                         idleIntensity = 1.0
                     }
+                }
+                // Start listening for wake word when idle (if not already listening via always-on)
+                if voiceCommandsEnabled && !alwaysListening && SpeechCommandService.isAuthorized && !speechService.isListening {
+                    speechService.startListening(wakeWord: wakeWord, voiceTimeout: voiceTimeout, lingerTime: voiceLingerTime, allowServer: allowServerRecognition)
                 }
             }
         }
@@ -281,10 +315,17 @@ struct TerminalView: View {
     private func markTerminalActivity() {
         lastActivityTime = Date()
         waitingForOutput = false
+        // Wake-word-activated or lingering voice stays through terminal output
+        if speechService.activatedByWakeWord || speechService.isLingering { return }
         if idleIntensity > 0 {
             withAnimation(.easeOut(duration: 0.5)) {
                 idleIntensity = 0
             }
+        }
+        if alwaysListening {
+            speechService.deactivate()
+        } else {
+            speechService.stopListening()
         }
     }
 
@@ -296,6 +337,93 @@ struct TerminalView: View {
             withAnimation(.easeOut(duration: 0.5)) {
                 idleIntensity = 0
             }
+        }
+        if alwaysListening {
+            speechService.deactivate()
+        } else {
+            speechService.stopListening()
+        }
+    }
+
+    private func setupVoiceCommands() {
+        speechService.onCommand = { [self] command in
+            switch command {
+            case .type(let text):
+                client.sendInput(text)
+            case .enter:
+                client.sendInput("\r")
+            case .tab:
+                client.sendInput("\t")
+            case .escape:
+                client.sendInput("\u{1b}")
+            case .space:
+                client.sendInput(" ")
+            case .delete(let count):
+                for _ in 0..<count {
+                    client.sendInput("\u{7f}")
+                }
+            case .arrowUp:
+                client.sendInput("\u{1b}[A")
+            case .arrowDown:
+                client.sendInput("\u{1b}[B")
+            case .arrowLeft:
+                client.sendInput("\u{1b}[D")
+            case .arrowRight:
+                client.sendInput("\u{1b}[C")
+            case .control(let letter):
+                let upper = letter.uppercased()
+                if let scalar = upper.unicodeScalars.first?.value, scalar >= 65, scalar <= 90 {
+                    client.sendInput(String(UnicodeScalar(scalar - 64)!))
+                }
+            }
+            lastActivityTime = Date()
+            waitingForOutput = true
+            // Fade glow after flash animation shows
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.8) { [self] in
+                if !speechService.isActive {
+                    withAnimation(.easeOut(duration: 0.5)) {
+                        idleIntensity = 0
+                    }
+                }
+            }
+        }
+
+        speechService.onActivate = { [self] in
+            // Wake word detected — show the glow
+            if idleIntensity == 0 {
+                withAnimation(.easeIn(duration: 0.3)) {
+                    idleIntensity = 0.5
+                }
+            }
+        }
+
+        speechService.onStop = { [self] in
+            withAnimation(.easeOut(duration: 0.5)) {
+                idleIntensity = 0
+            }
+            speechService.deactivate()
+            if !alwaysListening {
+                speechService.startLingering()
+            }
+            lastActivityTime = Date()
+            waitingForOutput = true
+        }
+
+        speechService.onTimeout = { [self] in
+            withAnimation(.easeOut(duration: 0.5)) {
+                idleIntensity = 0
+            }
+            speechService.deactivate()
+            if !alwaysListening {
+                speechService.startLingering()
+            }
+            lastActivityTime = Date()
+            waitingForOutput = true
+        }
+
+        // Always-listening: start immediately on connect
+        if voiceCommandsEnabled && alwaysListening && SpeechCommandService.isAuthorized {
+            speechService.startListening(wakeWord: wakeWord, voiceTimeout: voiceTimeout, lingerTime: voiceLingerTime, allowServer: allowServerRecognition)
         }
     }
 

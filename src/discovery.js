@@ -11,6 +11,7 @@ export class Discovery {
     this.deviceId = deviceId;
     this.shell = path.basename(shell);
     this.sessionName = (name || path.basename(process.cwd())).slice(0, 64);
+    this.started = String(Math.floor(Date.now() / 1000));
     this.host = host;
     this.noQr = noQr;
     this.noBonjour = noBonjour;
@@ -34,6 +35,7 @@ export class Discovery {
             salt: this.salt || '',
             shell: this.shell,
             name: this.sessionName,
+            started: this.started,
             hostname: os.hostname(),
             ip: ip,
             port: String(this.port),

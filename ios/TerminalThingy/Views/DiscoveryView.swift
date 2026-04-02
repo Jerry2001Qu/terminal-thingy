@@ -12,17 +12,19 @@ struct DiscoveryView: View {
     @State private var showSettings = false
 
     private var knownSessions: [(DiscoveredSession, PairedDevice)] {
-        browser.sessions.compactMap { session in
-            guard !session.deviceId.isEmpty,
-                  let device = pairedStore.device(for: session.deviceId) else { return nil }
-            return (session, device)
-        }
+        browser.sessions
+            .compactMap { session -> (DiscoveredSession, PairedDevice)? in
+                guard !session.deviceId.isEmpty,
+                      let device = pairedStore.device(for: session.deviceId) else { return nil }
+                return (session, device)
+            }
+            .sorted { $0.0.started > $1.0.started }
     }
 
     private var nearbySessions: [DiscoveredSession] {
-        browser.sessions.filter { session in
-            session.deviceId.isEmpty || pairedStore.device(for: session.deviceId) == nil
-        }
+        browser.sessions
+            .filter { $0.deviceId.isEmpty || pairedStore.device(for: $0.deviceId) == nil }
+            .sorted { $0.started > $1.started }
     }
 
     var body: some View {
@@ -44,7 +46,7 @@ struct DiscoveryView: View {
                                 VStack(alignment: .leading) {
                                     Text(session.hostname)
                                         .font(.headline)
-                                    Text(session.sessionName.isEmpty ? "port \(String(session.port))" : "\(session.sessionName) · port \(String(session.port))")
+                                    Text(sessionSubtitle(session))
                                         .font(.caption)
                                         .foregroundStyle(.secondary)
                                         .lineLimit(1)
@@ -167,7 +169,41 @@ struct DiscoveryView: View {
         .onDisappear { browser.stop() }
     }
 
+    private func sessionSubtitle(_ session: DiscoveredSession) -> String {
+        var parts: [String] = []
+        if !session.sessionName.isEmpty {
+            parts.append(session.sessionName)
+        }
+        parts.append("port \(String(session.port))")
+        if session.started > 0 {
+            parts.append(relativeTime(session.started))
+        }
+        return parts.joined(separator: " · ")
+    }
 
+    private func relativeTime(_ timestamp: Int) -> String {
+        let started = Date(timeIntervalSince1970: Double(timestamp))
+        let elapsed = Date().timeIntervalSince(started)
+
+        if elapsed < 60 {
+            return "just now"
+        } else if elapsed < 3600 {
+            let mins = Int(elapsed / 60)
+            return "\(mins)m ago"
+        } else if elapsed < 14400 { // 4 hours
+            let hours = Int(elapsed / 3600)
+            return "\(hours)h ago"
+        } else if Calendar.current.isDateInToday(started) {
+            let fmt = DateFormatter()
+            fmt.dateFormat = "h:mm a"
+            return fmt.string(from: started)
+        } else {
+            let fmt = DateFormatter()
+            fmt.dateStyle = .short
+            fmt.timeStyle = .none
+            return fmt.string(from: started)
+        }
+    }
 }
 
 struct ConnectionTarget: Hashable, Identifiable {

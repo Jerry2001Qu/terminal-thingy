@@ -45,5 +45,9 @@
     </array>
     <key>NSCameraUsageDescription</key>
     <string>Scans QR codes to connect to terminal sessions</string>
+    <key>NSSpeechRecognitionUsageDescription</key>
+    <string>Listens for voice commands when the terminal is idle</string>
+    <key>NSMicrophoneUsageDescription</key>
+    <string>Used to capture audio for voice commands</string>
 </dict>
 </plist>
