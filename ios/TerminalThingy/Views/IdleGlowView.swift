@@ -5,7 +5,7 @@ struct IdleGlowView: View {
 
     private let glowColor = Color(red: 0.25, green: 0.55, blue: 1.0)
 
-    private var i: Double { intensity > 0 ? 0.7 + intensity * 0.3 : 0 }
+    private var i: Double { intensity > 0 ? 0.3 + intensity * 0.7 : 0 }
 
     var body: some View {
         TimelineView(.animation(minimumInterval: 1.0 / 30.0, paused: intensity == 0)) { timeline in
