@@ -210,7 +210,7 @@ struct TerminalView: View {
             }
             let elapsed = Date().timeIntervalSince(lastActivityTime)
             if elapsed > idleGlowSeconds && idleIntensity == 0 {
-                withAnimation(.easeIn(duration: 20)) {
+                withAnimation(.easeIn(duration: 0.8)) {
                     idleIntensity = 1.0
                 }
             }
