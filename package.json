@@ -1,12 +1,13 @@
 {
   "name": "terminal-thingy",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Stream your terminal to your phone",
   "type": "module",
   "bin": {
     "terminal-thingy": "./bin/terminal-thingy.js"
   },
   "scripts": {
+    "postinstall": "node -e \"try{const p=require('path'),f=require('fs'),d=p.join(p.dirname(require.resolve('node-pty/package.json')),'prebuilds');if(f.existsSync(d)){const walk=dir=>{for(const e of f.readdirSync(dir,{withFileTypes:true})){const fp=p.join(dir,e.name);if(e.isDirectory())walk(fp);else if(e.name==='spawn-helper')f.chmodSync(fp,0o755)}};walk(d)}}catch(e){}\"",
     "test": "vitest run",
     "test:watch": "vitest"
   },
