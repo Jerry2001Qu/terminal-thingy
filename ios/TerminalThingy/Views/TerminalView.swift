@@ -18,7 +18,6 @@ struct TerminalView: View {
     @State private var lastActivityTime = Date()
     @State private var idleIntensity: Double = 0
     @State private var idleTimer: Timer?
-    @State private var glowPulse: Bool = false
     @State private var hasAutoResized = false
 
     var body: some View {
@@ -81,14 +80,20 @@ struct TerminalView: View {
                     .simultaneousGesture(
                         DragGesture().onChanged { _ in
                             isScrolledToBottom = false
+                            markActivity()
                         }
                     )
+                    .onTapGesture(count: 1) {
+                        markActivity()
+                    }
                     .onTapGesture(count: 2) {
+                        markActivity()
                         showKeyboard.toggle()
                     }
                     .simultaneousGesture(
                         MagnificationGesture()
                             .onEnded { scale in
+                                markActivity()
                                 guard grid.cols > 0 else { return }
                                 // scale > 1 = pinch out = bigger text = fewer cols
                                 // scale < 1 = pinch in = smaller text = more cols
@@ -142,12 +147,8 @@ struct TerminalView: View {
             }
         }
         .overlay {
-            if idleGlowEnabled && idleIntensity > 0 {
-                IdleGlowView(intensity: idleIntensity, pulsing: glowPulse)
-                    .allowsHitTesting(false)
-                    .onAppear { glowPulse = true }
-                    .onDisappear { glowPulse = false }
-            }
+            IdleGlowView(intensity: idleGlowEnabled ? idleIntensity : 0, pulsing: true)
+                .allowsHitTesting(false)
         }
         .background(Color(.systemBackground))
         .navigationTitle(target.ip)
@@ -248,22 +249,18 @@ struct TerminalView: View {
 
     private func startIdleTimer() {
         idleTimer?.invalidate()
-        idleTimer = Timer.scheduledTimer(withTimeInterval: 1, repeats: true) { _ in
+        idleTimer = Timer.scheduledTimer(withTimeInterval: 0.5, repeats: true) { _ in
             guard idleGlowEnabled else {
-                idleIntensity = 0
+                if idleIntensity > 0 {
+                    withAnimation(.easeOut(duration: 0.5)) { idleIntensity = 0 }
+                }
                 return
             }
             let elapsed = Date().timeIntervalSince(lastActivityTime)
-            if elapsed > idleGlowSeconds {
-                // Ramp up from 0 to 1 over 30 seconds after idle threshold
-                let rampTime = elapsed - idleGlowSeconds
-                let newIntensity = min(rampTime / 30.0, 1.0)
-                if abs(newIntensity - idleIntensity) > 0.01 {
-                    idleIntensity = newIntensity
-                }
-            } else {
-                if idleIntensity > 0 {
-                    idleIntensity = 0
+            if elapsed > idleGlowSeconds && idleIntensity == 0 {
+                // Threshold crossed — start a single smooth ramp to full intensity
+                withAnimation(.easeIn(duration: 20)) {
+                    idleIntensity = 1.0
                 }
             }
         }
@@ -272,7 +269,10 @@ struct TerminalView: View {
     private func markActivity() {
         lastActivityTime = Date()
         if idleIntensity > 0 {
-            idleIntensity = 0
+            // Quick animated fade-out
+            withAnimation(.easeOut(duration: 0.5)) {
+                idleIntensity = 0
+            }
         }
     }
 
