@@ -6,76 +6,92 @@ struct IdleGlowView: View {
 
     @State private var phase: Double = 0
 
-    private let glowColor1 = Color(red: 0.2, green: 0.5, blue: 1.0)  // Soft blue
-    private let glowColor2 = Color(red: 0.3, green: 0.7, blue: 1.0)  // Lighter blue
-    private let glowColor3 = Color(red: 0.1, green: 0.3, blue: 0.9)  // Deeper blue
+    private let glowColor1 = Color(red: 0.2, green: 0.5, blue: 1.0)
+    private let glowColor2 = Color(red: 0.3, green: 0.7, blue: 1.0)
+    private let glowColor3 = Color(red: 0.1, green: 0.4, blue: 1.0)
+
+    // Remap intensity: starts at what was previously max, scales up further
+    private var i: Double { 0.6 + intensity * 0.4 }
 
     var body: some View {
         GeometryReader { geo in
             ZStack {
-                // Layer 1: Outer soft glow
+                // Layer 1: Wide outer glow — very visible on all edges
                 RoundedRectangle(cornerRadius: 0)
                     .stroke(
-                        glowColor1.opacity(intensity * wave(offset: 0) * 0.3),
-                        lineWidth: intensity * 12
+                        glowColor1.opacity(i * wave(offset: 0) * 0.7),
+                        lineWidth: i * 30
                     )
-                    .blur(radius: intensity * 25)
+                    .blur(radius: i * 40)
 
-                // Layer 2: Mid glow with phase offset
+                // Layer 2: Mid glow
                 RoundedRectangle(cornerRadius: 0)
                     .stroke(
-                        glowColor2.opacity(intensity * wave(offset: 2) * 0.4),
-                        lineWidth: intensity * 6
+                        glowColor2.opacity(i * wave(offset: 2) * 0.8),
+                        lineWidth: i * 16
                     )
-                    .blur(radius: intensity * 12)
+                    .blur(radius: i * 20)
 
-                // Layer 3: Inner crisp edge
+                // Layer 3: Sharp inner edge
                 RoundedRectangle(cornerRadius: 0)
                     .stroke(
-                        glowColor3.opacity(intensity * wave(offset: 4) * 0.5),
-                        lineWidth: intensity * 2
+                        glowColor3.opacity(i * wave(offset: 4) * 0.9),
+                        lineWidth: i * 6
                     )
-                    .blur(radius: intensity * 4)
+                    .blur(radius: i * 8)
 
-                // Corner accents — brighter glow at corners for organic feel
-                ForEach(0..<4, id: \.self) { corner in
+                // Layer 4: Extra bright border line
+                RoundedRectangle(cornerRadius: 0)
+                    .stroke(
+                        glowColor2.opacity(i * wave(offset: 1) * 0.6),
+                        lineWidth: i * 2
+                    )
+
+                // Edge accents — top, bottom, left, right (not just corners)
+                ForEach(0..<8, id: \.self) { idx in
                     Circle()
                         .fill(
                             RadialGradient(
                                 colors: [
-                                    glowColor2.opacity(intensity * wave(offset: Double(corner) * 1.5) * 0.4),
+                                    glowColor2.opacity(i * wave(offset: Double(idx) * 0.8) * 0.5),
                                     Color.clear
                                 ],
                                 center: .center,
                                 startRadius: 0,
-                                endRadius: intensity * 80
+                                endRadius: i * 120
                             )
                         )
-                        .frame(width: intensity * 160, height: intensity * 160)
-                        .position(cornerPosition(corner, in: geo.size))
+                        .frame(width: i * 240, height: i * 240)
+                        .position(accentPosition(idx, in: geo.size))
                 }
             }
         }
         .onAppear {
-            withAnimation(.linear(duration: 6).repeatForever(autoreverses: false)) {
+            withAnimation(.linear(duration: 5).repeatForever(autoreverses: false)) {
                 phase = .pi * 2
             }
         }
     }
 
-    /// Smooth wave function for organic pulsing. Each layer has a different offset.
     private func wave(offset: Double) -> Double {
-        let base = sin(phase + offset) * 0.3 + 0.7  // Oscillates between 0.4 and 1.0
-        let secondary = sin(phase * 1.7 + offset * 0.5) * 0.15 + 0.85  // Subtle secondary rhythm
+        let base = sin(phase + offset) * 0.2 + 0.8
+        let secondary = sin(phase * 1.7 + offset * 0.5) * 0.1 + 0.9
         return base * secondary
     }
 
-    private func cornerPosition(_ index: Int, in size: CGSize) -> CGPoint {
+    /// 8 accent points: 4 corners + 4 edge midpoints
+    private func accentPosition(_ index: Int, in size: CGSize) -> CGPoint {
+        let w = size.width
+        let h = size.height
         switch index {
-        case 0: return CGPoint(x: 0, y: 0)
-        case 1: return CGPoint(x: size.width, y: 0)
-        case 2: return CGPoint(x: 0, y: size.height)
-        case 3: return CGPoint(x: size.width, y: size.height)
+        case 0: return CGPoint(x: 0, y: 0)             // top-left
+        case 1: return CGPoint(x: w, y: 0)              // top-right
+        case 2: return CGPoint(x: 0, y: h)              // bottom-left
+        case 3: return CGPoint(x: w, y: h)              // bottom-right
+        case 4: return CGPoint(x: w * 0.5, y: 0)        // top-center
+        case 5: return CGPoint(x: w * 0.5, y: h)        // bottom-center
+        case 6: return CGPoint(x: 0, y: h * 0.5)        // left-center
+        case 7: return CGPoint(x: w, y: h * 0.5)        // right-center
         default: return .zero
         }
     }
