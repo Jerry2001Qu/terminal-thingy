@@ -82,9 +82,8 @@ export async function startApp(opts) {
     vt.resize(cols, rows);
     // Broadcast resize immediately so clients clear their grid
     server.broadcast({ type: 'resize', cols, rows });
-    // Send state after shell has time to redraw, plus a safety follow-up
+    // Send state after shell has time to redraw
     setTimeout(() => server.broadcast(vt.getState()), 300);
-    setTimeout(() => server.broadcast(vt.getState()), 800);
   });
 
   // Spawn PTY
