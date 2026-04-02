@@ -65,13 +65,15 @@ class TerminalInputView: UIView, UIKeyInput {
 
     func insertText(_ text: String) {
         stopDeleteRepeat()
+        // Convert \n to \r — terminals expect carriage return for Enter, not line feed
+        let terminalText = text.replacingOccurrences(of: "\n", with: "\r")
         if ctrlActive {
-            for char in text {
+            for char in terminalText {
                 let upper = char.uppercased()
                 if let scalar = upper.unicodeScalars.first?.value, scalar >= 64, scalar <= 95 {
                     onKey?(String(UnicodeScalar(scalar - 64)!))
-                } else if char == "\n" {
-                    onKey?("\n")
+                } else if char == "\r" {
+                    onKey?("\r")
                 } else {
                     onKey?(String(char))
                 }
@@ -79,7 +81,7 @@ class TerminalInputView: UIView, UIKeyInput {
             ctrlActive = false
             accessoryBar.setCtrlActive(false)
         } else {
-            onKey?(text)
+            onKey?(terminalText)
         }
     }
 
