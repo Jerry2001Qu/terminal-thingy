@@ -23,7 +23,7 @@ targets:
         INFOPLIST_FILE: TerminalThingy/Info.plist
         PRODUCT_BUNDLE_IDENTIFIER: com.terminalthingy.app
         MARKETING_VERSION: "0.1.0"
-        CURRENT_PROJECT_VERSION: "1"
+        CURRENT_PROJECT_VERSION: "3"
         GENERATE_INFOPLIST_FILE: false
   TerminalThingyTests:
     type: bundle.unit-test
