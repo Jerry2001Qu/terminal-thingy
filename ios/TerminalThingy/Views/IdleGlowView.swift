@@ -3,130 +3,118 @@ import SwiftUI
 struct IdleGlowView: View {
     let intensity: Double
 
-    private let glowColor1 = Color(red: 0.2, green: 0.5, blue: 1.0)
-    private let glowColor2 = Color(red: 0.3, green: 0.7, blue: 1.0)
-    private let glowColor3 = Color(red: 0.1, green: 0.4, blue: 1.0)
+    private let glowColor = Color(red: 0.25, green: 0.55, blue: 1.0)
 
-    private var i: Double { intensity > 0 ? 0.6 + intensity * 0.4 : 0 }
+    private var i: Double { intensity > 0 ? 0.7 + intensity * 0.3 : 0 }
 
     var body: some View {
         TimelineView(.animation(minimumInterval: 1.0 / 30.0, paused: intensity == 0)) { timeline in
-            let phase = timeline.date.timeIntervalSinceReferenceDate
+            let t = timeline.date.timeIntervalSinceReferenceDate
+            let speed = 0.05 + intensity * 0.15
 
             GeometryReader { geo in
+                let glowDepth = 100.0 + i * 100.0
+
                 ZStack {
-                    // Layer 1: Wide outer glow
+                    // Base border glow
                     RoundedRectangle(cornerRadius: 0)
-                        .stroke(
-                            glowColor1.opacity(i * wave(phase, offset: 0) * 0.7),
-                            lineWidth: i * 30
-                        )
-                        .blur(radius: i * 40)
+                        .stroke(glowColor.opacity(i * 0.9), lineWidth: 10)
+                        .blur(radius: 15)
 
-                    // Layer 2: Mid glow
+                    // Wide diffuse layer
                     RoundedRectangle(cornerRadius: 0)
-                        .stroke(
-                            glowColor2.opacity(i * wave(phase, offset: 2) * 0.8),
-                            lineWidth: i * 16
-                        )
-                        .blur(radius: i * 20)
+                        .stroke(glowColor.opacity(i * 0.7), lineWidth: 30)
+                        .blur(radius: 40)
 
-                    // Layer 3: Sharp inner edge
+                    // Extra wide ambient wash
                     RoundedRectangle(cornerRadius: 0)
-                        .stroke(
-                            glowColor3.opacity(i * wave(phase, offset: 4) * 0.9),
-                            lineWidth: i * 6
-                        )
-                        .blur(radius: i * 8)
+                        .stroke(glowColor.opacity(i * 0.3), lineWidth: 50)
+                        .blur(radius: 60)
 
-                    // Layer 4: Crisp border
-                    RoundedRectangle(cornerRadius: 0)
-                        .stroke(
-                            glowColor2.opacity(i * wave(phase, offset: 1) * 0.6),
-                            lineWidth: i * 2
-                        )
+                    // Top edge
+                    edgeGlow(
+                        width: geo.size.width, height: glowDepth,
+                        gradient: .top,
+                        brightness: edgeBrightness(t, speed: speed, edgeOffset: 0)
+                    )
+                    .frame(width: geo.size.width, height: glowDepth)
+                    .position(x: geo.size.width / 2, y: 0)
 
-                    // Traveling wave blobs — orbit clockwise, speed scales with intensity
-                    let speed = 0.05 + intensity * 0.3
-                    ForEach(0..<6, id: \.self) { idx in
-                        let blobPhase = phase * speed + Double(idx) * (.pi * 2 / 6)
-                        let pos = perimeterPosition(phase: blobPhase, in: geo.size)
+                    // Bottom edge
+                    edgeGlow(
+                        width: geo.size.width, height: glowDepth,
+                        gradient: .bottom,
+                        brightness: edgeBrightness(t, speed: speed, edgeOffset: 2)
+                    )
+                    .frame(width: geo.size.width, height: glowDepth)
+                    .position(x: geo.size.width / 2, y: geo.size.height)
 
-                        Circle()
-                            .fill(
-                                RadialGradient(
-                                    colors: [
-                                        glowColor2.opacity(i * blobWave(phase, idx: idx) * 0.6),
-                                        glowColor1.opacity(i * blobWave(phase, idx: idx) * 0.2),
-                                        Color.clear
-                                    ],
-                                    center: .center,
-                                    startRadius: 0,
-                                    endRadius: i * 100
-                                )
-                            )
-                            .frame(width: i * 200, height: i * 200)
-                            .position(pos)
-                            .blur(radius: i * 15)
-                    }
+                    // Left edge
+                    edgeGlow(
+                        width: glowDepth, height: geo.size.height,
+                        gradient: .leading,
+                        brightness: edgeBrightness(t, speed: speed, edgeOffset: 3)
+                    )
+                    .frame(width: glowDepth, height: geo.size.height)
+                    .position(x: 0, y: geo.size.height / 2)
 
-                    // Counter-rotating blobs
-                    let counterSpeed = 0.03 + intensity * 0.2
-                    ForEach(0..<4, id: \.self) { idx in
-                        let blobPhase = -phase * counterSpeed + Double(idx) * (.pi * 2 / 4) + 1.0
-                        let pos = perimeterPosition(phase: blobPhase, in: geo.size)
-
-                        Circle()
-                            .fill(
-                                RadialGradient(
-                                    colors: [
-                                        glowColor3.opacity(i * 0.4),
-                                        Color.clear
-                                    ],
-                                    center: .center,
-                                    startRadius: 0,
-                                    endRadius: i * 80
-                                )
-                            )
-                            .frame(width: i * 160, height: i * 160)
-                            .position(pos)
-                            .blur(radius: i * 20)
-                    }
+                    // Right edge
+                    edgeGlow(
+                        width: glowDepth, height: geo.size.height,
+                        gradient: .trailing,
+                        brightness: edgeBrightness(t, speed: speed, edgeOffset: 1)
+                    )
+                    .frame(width: glowDepth, height: geo.size.height)
+                    .position(x: geo.size.width, y: geo.size.height / 2)
                 }
             }
         }
     }
 
-    // Continuous wave — no looping, just uses real time
-    private func wave(_ phase: Double, offset: Double) -> Double {
-        let a = sin(phase * 0.3 + offset) * 0.2 + 0.8
-        let b = sin(phase * 0.17 + offset * 0.5) * 0.1 + 0.9
-        return a * b
-    }
+    /// A single edge glow strip — gradient from bright at edge to transparent inward
+    private func edgeGlow(width: CGFloat, height: CGFloat, gradient: Edge.Set, brightness: Double) -> some View {
+        let opacity = i * brightness
 
-    private func blobWave(_ phase: Double, idx: Int) -> Double {
-        let offset = Double(idx) * 1.3
-        return sin(phase * 0.23 + offset) * 0.3 + 0.7
-    }
+        let startPoint: UnitPoint
+        let endPoint: UnitPoint
 
-    private func perimeterPosition(phase: Double, in size: CGSize) -> CGPoint {
-        let w = size.width
-        let h = size.height
-        let perimeter = 2 * (w + h)
-
-        var t = phase.truncatingRemainder(dividingBy: .pi * 2)
-        if t < 0 { t += .pi * 2 }
-        let frac = t / (.pi * 2)
-        let dist = frac * perimeter
-
-        if dist < w {
-            return CGPoint(x: dist, y: 0)
-        } else if dist < w + h {
-            return CGPoint(x: w, y: dist - w)
-        } else if dist < 2 * w + h {
-            return CGPoint(x: w - (dist - w - h), y: h)
-        } else {
-            return CGPoint(x: 0, y: h - (dist - 2 * w - h))
+        switch gradient {
+        case .top:
+            startPoint = .top; endPoint = .bottom
+        case .bottom:
+            startPoint = .bottom; endPoint = .top
+        case .leading:
+            startPoint = .leading; endPoint = .trailing
+        case .trailing:
+            startPoint = .trailing; endPoint = .leading
+        default:
+            startPoint = .top; endPoint = .bottom
         }
+
+        return LinearGradient(
+            colors: [
+                glowColor.opacity(opacity),
+                glowColor.opacity(opacity * 0.6),
+                glowColor.opacity(opacity * 0.2),
+                Color.clear
+            ],
+            startPoint: startPoint,
+            endPoint: endPoint
+        )
+        .blur(radius: 25)
+    }
+
+    /// All edges pulse in sync
+    private func edgeBrightness(_ t: Double, speed: Double, edgeOffset: Double) -> Double {
+        // Primary pulse
+        let wave1 = sin(t * speed * .pi * 4) * 0.45 + 0.55
+
+        // Secondary rhythm
+        let wave2 = sin(t * speed * 2.6 * .pi * 2 + 0.7) * 0.3 + 0.7
+
+        // Slow breathe
+        let wave3 = sin(t * 0.3) * 0.2 + 0.8
+
+        return max(wave1 * wave2 * wave3, 0.2)
     }
 }

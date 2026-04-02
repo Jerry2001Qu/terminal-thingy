@@ -47,16 +47,12 @@ struct SettingsView: View {
                     Toggle("Idle Glow", isOn: $idleGlowEnabled)
 
                     if idleGlowEnabled {
-                        VStack(alignment: .leading, spacing: 8) {
-                            HStack {
-                                Text("Wait Time")
-                                Spacer()
-                                Text("\(Int(idleGlowSeconds))s")
-                                    .foregroundStyle(.secondary)
-                            }
-                            Slider(value: $idleGlowSeconds, in: 1...120, step: 1)
+                        HStack {
+                            Text("Wait Time")
+                            Spacer()
+                            Stepper("\(Int(idleGlowSeconds))s", value: $idleGlowSeconds, in: 1...120, step: 1)
+                                .fixedSize()
                         }
-                        .padding(.vertical, 4)
                     }
                 } header: {
                     Text("Idle Indicator")

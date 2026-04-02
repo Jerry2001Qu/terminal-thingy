@@ -149,7 +149,7 @@ struct TerminalView: View {
         .overlay {
             IdleGlowView(intensity: idleGlowEnabled ? idleIntensity : 0)
                 .allowsHitTesting(false)
-                .ignoresSafeArea()
+                .ignoresSafeArea(edges: [.bottom, .leading, .trailing])
         }
         .background(Color(.systemBackground))
         .navigationTitle(target.ip)
@@ -216,7 +216,7 @@ struct TerminalView: View {
             if elapsed > idleGlowSeconds && idleIntensity == 0 && !waitingForOutput {
                 // Quick pop to baseline
                 withAnimation(.easeIn(duration: 0.8)) {
-                    idleIntensity = 0.5
+                    idleIntensity = 0.35
                 }
                 // Then slow ramp to full
                 DispatchQueue.main.asyncAfter(deadline: .now() + 0.8) {
