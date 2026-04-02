@@ -17,6 +17,7 @@ struct TerminalView: View {
     @AppStorage("autoResize") private var autoResize = true
     @State private var lastActivityTime = Date()
     @State private var idleIntensity: Double = 0
+    @State private var waitingForOutput = false
     @State private var hasAutoResized = false
 
     var body: some View {
@@ -79,20 +80,20 @@ struct TerminalView: View {
                     .simultaneousGesture(
                         DragGesture().onChanged { _ in
                             isScrolledToBottom = false
-                            markActivity()
+                            markUserInteraction()
                         }
                     )
                     .onTapGesture(count: 1) {
-                        markActivity()
+                        markUserInteraction()
                     }
                     .onTapGesture(count: 2) {
-                        markActivity()
+                        markUserInteraction()
                         showKeyboard.toggle()
                     }
                     .simultaneousGesture(
                         MagnificationGesture()
                             .onEnded { scale in
-                                markActivity()
+                                markUserInteraction()
                                 guard grid.cols > 0 else { return }
                                 // scale > 1 = pinch out = bigger text = fewer cols
                                 // scale < 1 = pinch in = smaller text = more cols
@@ -146,7 +147,7 @@ struct TerminalView: View {
             }
         }
         .overlay {
-            IdleGlowView(intensity: idleGlowEnabled ? idleIntensity : 0, pulsing: true)
+            IdleGlowView(intensity: idleGlowEnabled ? idleIntensity : 0)
                 .allowsHitTesting(false)
         }
         .background(Color(.systemBackground))
@@ -161,12 +162,14 @@ struct TerminalView: View {
                 HStack(spacing: 16) {
                     if !isAtFitSize {
                         Button {
+                            markUserInteraction()
                             fitToPhone()
                         } label: {
                             Image(systemName: "arrow.up.left.and.arrow.down.right")
                         }
                     }
                     Button {
+                        markUserInteraction()
                         showKeyboard.toggle()
                     } label: {
                         Image(systemName: showKeyboard ? "keyboard.fill" : "keyboard")
@@ -209,7 +212,7 @@ struct TerminalView: View {
                 return
             }
             let elapsed = Date().timeIntervalSince(lastActivityTime)
-            if elapsed > idleGlowSeconds && idleIntensity == 0 {
+            if elapsed > idleGlowSeconds && idleIntensity == 0 && !waitingForOutput {
                 // Quick pop to baseline
                 withAnimation(.easeIn(duration: 0.8)) {
                     idleIntensity = 0.5
@@ -265,10 +268,22 @@ struct TerminalView: View {
         client.sendResize(cols: cols, rows: rows)
     }
 
-    private func markActivity() {
+    /// Called on terminal output — resets idle timer, allows glow to re-trigger later
+    private func markTerminalActivity() {
         lastActivityTime = Date()
+        waitingForOutput = false
         if idleIntensity > 0 {
-            // Quick animated fade-out
+            withAnimation(.easeOut(duration: 0.5)) {
+                idleIntensity = 0
+            }
+        }
+    }
+
+    /// Called on user interaction — resets idle timer AND blocks glow until next terminal output
+    private func markUserInteraction() {
+        lastActivityTime = Date()
+        waitingForOutput = true
+        if idleIntensity > 0 {
             withAnimation(.easeOut(duration: 0.5)) {
                 idleIntensity = 0
             }
@@ -277,7 +292,7 @@ struct TerminalView: View {
 
     private func setupClient() {
         client.onMessage = { message in
-            markActivity()
+            markTerminalActivity()
             switch message {
             case .state(let state):
                 grid.applyState(state)
