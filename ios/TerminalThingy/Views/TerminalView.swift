@@ -12,6 +12,11 @@ struct TerminalView: View {
     @State private var viewWidth: CGFloat = 0
     @AppStorage("keepScreenAwake") private var keepScreenAwake = true
     @AppStorage("fitFontSize") private var fitFontSize: Double = 10.0
+    @AppStorage("idleGlowEnabled") private var idleGlowEnabled = true
+    @AppStorage("idleGlowSeconds") private var idleGlowSeconds: Double = 30
+    @State private var lastActivityTime = Date()
+    @State private var idleIntensity: Double = 0
+    @State private var idleTimer: Timer?
 
     var body: some View {
         GeometryReader { geo in
@@ -122,6 +127,18 @@ struct TerminalView: View {
                 }
             }
         }
+        .overlay {
+            if idleGlowEnabled && idleIntensity > 0 {
+                RoundedRectangle(cornerRadius: 0)
+                    .stroke(
+                        Color.orange.opacity(idleIntensity * 0.6),
+                        lineWidth: max(idleIntensity * 8, 1)
+                    )
+                    .shadow(color: .orange.opacity(idleIntensity * 0.4), radius: idleIntensity * 20)
+                    .allowsHitTesting(false)
+                    .animation(.easeInOut(duration: 2), value: idleIntensity)
+            }
+        }
         .background(Color(.systemBackground))
         .navigationTitle(target.ip)
         .navigationBarTitleDisplayMode(.inline)
@@ -167,10 +184,12 @@ struct TerminalView: View {
             }
             setupClient()
             client.connect(url: target.websocketURL, key: target.encryptionKey)
+            startIdleTimer()
         }
         .onDisappear {
             UIApplication.shared.isIdleTimerDisabled = false
             client.disconnect()
+            idleTimer?.invalidate()
         }
     }
 
@@ -209,8 +228,39 @@ struct TerminalView: View {
         client.sendResize(cols: cols, rows: rows)
     }
 
+    private func startIdleTimer() {
+        idleTimer?.invalidate()
+        idleTimer = Timer.scheduledTimer(withTimeInterval: 1, repeats: true) { _ in
+            guard idleGlowEnabled else {
+                idleIntensity = 0
+                return
+            }
+            let elapsed = Date().timeIntervalSince(lastActivityTime)
+            if elapsed > idleGlowSeconds {
+                // Ramp up from 0 to 1 over 30 seconds after idle threshold
+                let rampTime = elapsed - idleGlowSeconds
+                let newIntensity = min(rampTime / 30.0, 1.0)
+                if abs(newIntensity - idleIntensity) > 0.01 {
+                    idleIntensity = newIntensity
+                }
+            } else {
+                if idleIntensity > 0 {
+                    idleIntensity = 0
+                }
+            }
+        }
+    }
+
+    private func markActivity() {
+        lastActivityTime = Date()
+        if idleIntensity > 0 {
+            idleIntensity = 0
+        }
+    }
+
     private func setupClient() {
         client.onMessage = { message in
+            markActivity()
             switch message {
             case .state(let state):
                 grid.applyState(state)
