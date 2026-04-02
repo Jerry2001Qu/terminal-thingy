@@ -62,6 +62,14 @@ struct TerminalView: View {
                             isScrolledToBottom = false
                         }
                     )
+                    .onChange(of: showKeyboard) { _ in
+                        // When keyboard appears/disappears, scroll to keep content visible
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+                            withAnimation {
+                                proxy.scrollTo("viewport", anchor: grid.scrollbackLines.isEmpty ? .top : .bottom)
+                            }
+                        }
+                    }
 
                     // "New output" / "Live" button
                     if !isScrolledToBottom {
