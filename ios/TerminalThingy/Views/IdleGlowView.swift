@@ -46,9 +46,10 @@ struct IdleGlowView: View {
                             lineWidth: i * 2
                         )
 
-                    // Traveling wave blobs — orbit clockwise
+                    // Traveling wave blobs — orbit clockwise, speed scales with intensity
+                    let speed = 0.15 + intensity * 0.5
                     ForEach(0..<6, id: \.self) { idx in
-                        let blobPhase = phase * 0.4 + Double(idx) * (.pi * 2 / 6)
+                        let blobPhase = phase * speed + Double(idx) * (.pi * 2 / 6)
                         let pos = perimeterPosition(phase: blobPhase, in: geo.size)
 
                         Circle()
@@ -70,8 +71,9 @@ struct IdleGlowView: View {
                     }
 
                     // Counter-rotating blobs
+                    let counterSpeed = 0.1 + intensity * 0.3
                     ForEach(0..<4, id: \.self) { idx in
-                        let blobPhase = -phase * 0.25 + Double(idx) * (.pi * 2 / 4) + 1.0
+                        let blobPhase = -phase * counterSpeed + Double(idx) * (.pi * 2 / 4) + 1.0
                         let pos = perimeterPosition(phase: blobPhase, in: geo.size)
 
                         Circle()
