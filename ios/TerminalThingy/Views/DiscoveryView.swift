@@ -44,9 +44,10 @@ struct DiscoveryView: View {
                                 VStack(alignment: .leading) {
                                     Text(session.hostname)
                                         .font(.headline)
-                                    Text("\(session.shell) · port \(String(session.port))")
+                                    Text(session.sessionName.isEmpty ? "port \(String(session.port))" : "\(session.sessionName) · port \(String(session.port))")
                                         .font(.caption)
                                         .foregroundStyle(.secondary)
+                                        .lineLimit(1)
                                 }
                                 Spacer()
                                 Image(systemName: "checkmark.circle.fill")
@@ -81,9 +82,20 @@ struct DiscoveryView: View {
                             VStack(alignment: .leading) {
                                 Text(session.hostname)
                                     .font(.headline)
-                                Text("\(session.shell) · port \(String(session.port))")
-                                    .font(.caption)
-                                    .foregroundStyle(.secondary)
+                                HStack(spacing: 0) {
+                                    if !session.sessionName.isEmpty {
+                                        Text(session.sessionName)
+                                            .lineLimit(1)
+                                            .truncationMode(.tail)
+                                            .layoutPriority(0)
+                                        Text(" · ")
+                                    }
+                                    Text("\(session.shell) · port \(String(session.port))")
+                                        .lineLimit(1)
+                                        .layoutPriority(1)
+                                }
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
                             }
                             Spacer()
                             Image(systemName: "chevron.right")
@@ -154,6 +166,8 @@ struct DiscoveryView: View {
         .onAppear { browser.start() }
         .onDisappear { browser.stop() }
     }
+
+
 }
 
 struct ConnectionTarget: Hashable, Identifiable {

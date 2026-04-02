@@ -4,12 +4,13 @@ import os from 'node:os';
 import path from 'node:path';
 
 export class Discovery {
-  constructor({ port, code, salt, deviceId, shell, host = '0.0.0.0', noQr = false, noBonjour = false }) {
+  constructor({ port, code, salt, deviceId, shell, name, host = '0.0.0.0', noQr = false, noBonjour = false }) {
     this.port = port;
     this.code = code;
     this.salt = salt;
     this.deviceId = deviceId;
     this.shell = path.basename(shell);
+    this.sessionName = (name || path.basename(process.cwd())).slice(0, 64);
     this.host = host;
     this.noQr = noQr;
     this.noBonjour = noBonjour;
@@ -32,6 +33,7 @@ export class Discovery {
           txt: {
             salt: this.salt || '',
             shell: this.shell,
+            name: this.sessionName,
             hostname: os.hostname(),
             ip: ip,
             port: String(this.port),

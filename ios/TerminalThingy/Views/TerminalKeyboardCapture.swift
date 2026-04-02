@@ -30,8 +30,6 @@ class TerminalInputView: UIView, UIKeyInput {
     var onHideKeyboard: (() -> Void)?
     var ctrlActive = false
     private var shiftHeld = false
-    private var deleteTimer: Timer?
-    private var deleteCount = 0
 
     // MARK: First responder
 
@@ -39,7 +37,6 @@ class TerminalInputView: UIView, UIKeyInput {
 
     @discardableResult
     override func resignFirstResponder() -> Bool {
-        stopDeleteRepeat()
         return super.resignFirstResponder()
     }
 
@@ -85,7 +82,7 @@ class TerminalInputView: UIView, UIKeyInput {
     var hasText: Bool { true }
 
     func insertText(_ text: String) {
-        stopDeleteRepeat()
+
         // Enter sends \r (carriage return = submit in Claude Code)
         // Shift+Enter sends \n (line feed = newline in Claude Code)
         let terminalText: String
@@ -114,25 +111,6 @@ class TerminalInputView: UIView, UIKeyInput {
 
     func deleteBackward() {
         onKey?("\u{7f}")
-        // Start repeat timer on first delete
-        deleteCount += 1
-        if deleteCount == 1 {
-            // After initial delay, start repeating
-            deleteTimer?.invalidate()
-            deleteTimer = Timer.scheduledTimer(withTimeInterval: 0.4, repeats: false) { [weak self] _ in
-                self?.deleteTimer = Timer.scheduledTimer(withTimeInterval: 0.07, repeats: true) { [weak self] _ in
-                    self?.onKey?("\u{7f}")
-                }
-            }
-        }
-    }
-
-    // Called when the delete key is released (text changes stop)
-    // We reset via insertText or the next interaction
-    private func stopDeleteRepeat() {
-        deleteTimer?.invalidate()
-        deleteTimer = nil
-        deleteCount = 0
     }
 
     // MARK: Special keys from accessory bar

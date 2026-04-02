@@ -15,8 +15,10 @@ program
   .option('--no-bonjour', 'Skip mDNS advertisement')
   .option('--fps <number>', 'Max updates per second', parseInt, 30)
   .option('--scrollback <number>', 'Max scrollback lines', parseInt, 1000)
+  .option('--name <name>', 'Session name shown on phone (default: folder name)')
   .option('--no-auth', 'Disable token auth and encryption')
   .option('--reset-pin', 'Generate a new PIN for this device')
+  .option('--verbose', 'Log connection attempts to stderr')
   .parse();
 
 startApp(program.opts());

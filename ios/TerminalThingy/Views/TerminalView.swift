@@ -59,14 +59,32 @@ struct TerminalView: View {
                                 availableWidth: geo.size.width
                             )
                             .id("viewport")
+
+                            // Bottom sentinel — tracks whether we're scrolled to the bottom
+                            GeometryReader { bottom in
+                                Color.clear.preference(
+                                    key: BottomVisibleKey.self,
+                                    value: bottom.frame(in: .named("terminalScroll")).maxY <= geo.size.height + 50
+                                )
+                            }
+                            .frame(height: 1)
+                        }
+                    }
+                    .coordinateSpace(name: "terminalScroll")
+                    .onPreferenceChange(BottomVisibleKey.self) { atBottom in
+                        if atBottom != isScrolledToBottom {
+                            isScrolledToBottom = atBottom
+                        }
+                        if atBottom {
+                            hasNewOutput = false
                         }
                     }
                     .onChange(of: grid.cells) { _ in
-                        if isScrolledToBottom && grid.scrollbackLines.count > 0 {
+                        if isScrolledToBottom {
                             withAnimation(.easeOut(duration: 0.1)) {
                                 proxy.scrollTo("viewport", anchor: .bottom)
                             }
-                        } else if !isScrolledToBottom {
+                        } else {
                             hasNewOutput = true
                         }
                     }
@@ -77,12 +95,6 @@ struct TerminalView: View {
                             hasNewOutput = true
                         }
                     }
-                    .simultaneousGesture(
-                        DragGesture().onChanged { _ in
-                            isScrolledToBottom = false
-                            markUserInteraction()
-                        }
-                    )
                     .onTapGesture(count: 1) {
                         markUserInteraction()
                     }
@@ -95,16 +107,12 @@ struct TerminalView: View {
                             .onEnded { scale in
                                 markUserInteraction()
                                 guard grid.cols > 0 else { return }
-                                // scale > 1 = pinch out = bigger text = fewer cols
-                                // scale < 1 = pinch in = smaller text = more cols
                                 let newCols = max(Int(CGFloat(grid.cols) / scale), 20)
                                 let rows = grid.rows > 0 ? grid.rows : 24
                                 client.sendResize(cols: newCols, rows: rows)
                             }
                     )
                     .onChange(of: showKeyboard) { _ in
-                        // When keyboard appears, scroll to bottom to keep cursor/prompt visible
-                        // When keyboard disappears, scroll to top if no scrollback
                         DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
                             withAnimation {
                                 let anchor: UnitPoint = showKeyboard ? .bottom : (grid.scrollbackLines.isEmpty ? .top : .bottom)
@@ -312,5 +320,12 @@ struct TerminalView: View {
                 grid.applyResize(resize)
             }
         }
+    }
+}
+
+private struct BottomVisibleKey: PreferenceKey {
+    static var defaultValue = true
+    static func reduce(value: inout Bool, nextValue: () -> Bool) {
+        value = nextValue()
     }
 }

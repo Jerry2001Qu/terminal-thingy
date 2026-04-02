@@ -6,6 +6,7 @@ struct DiscoveredSession: Identifiable {
     let name: String
     let hostname: String
     let shell: String
+    let sessionName: String
     let ip: String
     let port: Int
     let salt: String
@@ -33,6 +34,7 @@ class BonjourBrowser: ObservableObject {
 
                 let hostname = record.string(for: "hostname") ?? "Unknown"
                 let shell = record.string(for: "shell") ?? "sh"
+                let sessionName = record.string(for: "name") ?? ""
                 let ip = record.string(for: "ip") ?? ""
                 let portStr = record.string(for: "port") ?? "0"
                 let salt = record.string(for: "salt") ?? ""
@@ -52,6 +54,7 @@ class BonjourBrowser: ObservableObject {
                     name: name,
                     hostname: hostname,
                     shell: shell,
+                    sessionName: sessionName,
                     ip: ip,
                     port: port,
                     salt: salt,

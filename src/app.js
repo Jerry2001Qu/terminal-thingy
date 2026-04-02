@@ -31,6 +31,7 @@ export async function startApp(opts) {
     auth: useAuth,
     code,
     salt,
+    verbose: opts.verbose || false,
   });
 
   let address;
@@ -52,6 +53,7 @@ export async function startApp(opts) {
     salt,
     deviceId,
     shell,
+    name: opts.name,
     host: opts.host,
     noQr: opts.qr === false,
     noBonjour: opts.bonjour === false,
