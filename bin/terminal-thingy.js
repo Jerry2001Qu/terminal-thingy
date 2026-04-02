@@ -7,7 +7,7 @@ const program = new Command();
 program
   .name('terminal-thingy')
   .description('Stream your terminal to your phone')
-  .version('0.2.0')
+  .version('0.2.1')
   .option('--port <number>', 'WebSocket server port (default: random)', parseInt)
   .option('--host <address>', 'Bind address', '0.0.0.0')
   .option('--shell <command>', 'Shell to run (default: $SHELL)')
