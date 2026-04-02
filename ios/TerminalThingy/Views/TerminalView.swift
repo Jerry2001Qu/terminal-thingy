@@ -11,6 +11,7 @@ struct TerminalView: View {
     @State private var showKeyboard = false
     @State private var viewWidth: CGFloat = 0
     @AppStorage("keepScreenAwake") private var keepScreenAwake = true
+    @AppStorage("fitFontSize") private var fitFontSize: Double = 10.0
 
     var body: some View {
         GeometryReader { geo in
@@ -203,8 +204,7 @@ struct TerminalView: View {
 
     private func fitToPhone() {
         let width = viewWidth > 0 ? viewWidth : UIScreen.main.bounds.width
-        let charWidth: CGFloat = 6.0
-        let cols = max(Int(width / charWidth), 20)
+        let cols = CellMetrics.colsForWidth(width, fontSize: CGFloat(fitFontSize))
         let rows = grid.rows > 0 ? grid.rows : 24
         client.sendResize(cols: cols, rows: rows)
     }

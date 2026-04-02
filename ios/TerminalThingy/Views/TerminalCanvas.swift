@@ -44,7 +44,15 @@ struct CellMetrics {
         )
     }
 
-    private static func measureAdvanceWidth(of char: String, font: CTFont) -> CGFloat {
+    /// Calculate how many columns fit at a given font size for a given width.
+    static func colsForWidth(_ width: CGFloat, fontSize: CGFloat) -> Int {
+        let font = CTFontCreateWithName("Menlo" as CFString, fontSize, nil)
+        let advance = measureAdvanceWidth(of: "W", font: font)
+        guard advance > 0 else { return 80 }
+        return max(Int(width / advance), 20)
+    }
+
+    static func measureAdvanceWidth(of char: String, font: CTFont) -> CGFloat {
         var glyph = CGGlyph(0)
         var unichars = Array(char.utf16)
         CTFontGetGlyphsForCharacters(font, &unichars, &glyph, 1)
