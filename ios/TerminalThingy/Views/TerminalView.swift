@@ -210,8 +210,15 @@ struct TerminalView: View {
             }
             let elapsed = Date().timeIntervalSince(lastActivityTime)
             if elapsed > idleGlowSeconds && idleIntensity == 0 {
+                // Quick pop to baseline
                 withAnimation(.easeIn(duration: 0.8)) {
-                    idleIntensity = 1.0
+                    idleIntensity = 0.5
+                }
+                // Then slow ramp to full
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.8) {
+                    withAnimation(.easeIn(duration: 30)) {
+                        idleIntensity = 1.0
+                    }
                 }
             }
         }
