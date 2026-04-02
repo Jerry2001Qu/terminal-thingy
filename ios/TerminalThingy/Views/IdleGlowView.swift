@@ -12,7 +12,7 @@ struct IdleGlowView: View {
     private let glowColor3 = Color(red: 0.1, green: 0.4, blue: 1.0)
 
     // Remap: starts strong, gets stronger
-    private var i: Double { 0.6 + intensity * 0.4 }
+    private var i: Double { intensity > 0 ? 0.6 + intensity * 0.4 : 0 }
 
     // Quick fade-in over ~1s when first appearing
     private var fadeIn: Double { appeared ? 1.0 : 0.0 }
