@@ -153,6 +153,7 @@ struct TerminalView: View {
         .overlay {
             IdleGlowView(intensity: idleGlowEnabled ? idleIntensity : 0)
                 .allowsHitTesting(false)
+                .ignoresSafeArea()
         }
         .background(Color(.systemBackground))
         .navigationTitle(target.ip)
