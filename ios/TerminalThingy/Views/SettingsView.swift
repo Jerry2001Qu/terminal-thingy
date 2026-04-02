@@ -4,6 +4,7 @@ struct SettingsView: View {
     @AppStorage("theme") private var theme: String = "dark"
     @AppStorage("keepScreenAwake") private var keepScreenAwake: Bool = true
     @AppStorage("fitFontSize") private var fitFontSize: Double = 10.0
+    @AppStorage("autoResize") private var autoResize = true
     @AppStorage("idleGlowEnabled") private var idleGlowEnabled = true
     @AppStorage("idleGlowSeconds") private var idleGlowSeconds: Double = 8
     @Environment(\.dismiss) private var dismiss
@@ -35,10 +36,11 @@ struct SettingsView: View {
                     Text("~\(previewCols) columns on this device")
                         .font(.caption)
                         .foregroundStyle(.secondary)
+                    Toggle("Auto-Resize", isOn: $autoResize)
                 } header: {
                     Text("Terminal")
                 } footer: {
-                    Text("Controls how many columns \"Fit to Phone\" uses. Smaller text = more columns.")
+                    Text("Text size controls \"Fit to Phone\" columns. Auto-resize adjusts the terminal on connect and rotation.")
                 }
 
                 Section {
@@ -59,7 +61,7 @@ struct SettingsView: View {
                 } header: {
                     Text("Idle Indicator")
                 } footer: {
-                    Text("Shows an orange glow around the screen when the terminal has been idle, indicating it may be waiting for input.")
+                    Text("Shows a blue glow around the screen when the terminal has been idle, indicating it may be waiting for input.")
                 }
 
                 Section("Display") {

@@ -14,16 +14,27 @@ struct TerminalView: View {
     @AppStorage("fitFontSize") private var fitFontSize: Double = 10.0
     @AppStorage("idleGlowEnabled") private var idleGlowEnabled = true
     @AppStorage("idleGlowSeconds") private var idleGlowSeconds: Double = 8
+    @AppStorage("autoResize") private var autoResize = true
     @State private var lastActivityTime = Date()
     @State private var idleIntensity: Double = 0
     @State private var idleTimer: Timer?
+    @State private var glowPulse: Bool = false
+    @State private var hasAutoResized = false
 
     var body: some View {
         GeometryReader { geo in
             ZStack(alignment: .bottom) {
                 Color.clear
                     .onAppear { viewWidth = geo.size.width }
-                    .onChange(of: geo.size) { _ in viewWidth = geo.size.width }
+                    .onChange(of: geo.size) { _ in
+                        let newWidth = geo.size.width
+                        if newWidth != viewWidth {
+                            viewWidth = newWidth
+                            if autoResize && client.state == .connected {
+                                fitToPhone()
+                            }
+                        }
+                    }
                 ScrollViewReader { proxy in
                     ScrollView {
                         VStack(spacing: 0) {
@@ -129,14 +140,10 @@ struct TerminalView: View {
         }
         .overlay {
             if idleGlowEnabled && idleIntensity > 0 {
-                RoundedRectangle(cornerRadius: 0)
-                    .stroke(
-                        Color.orange.opacity(idleIntensity * 0.6),
-                        lineWidth: max(idleIntensity * 8, 1)
-                    )
-                    .shadow(color: .orange.opacity(idleIntensity * 0.4), radius: idleIntensity * 20)
+                IdleGlowView(intensity: idleIntensity, pulsing: glowPulse)
                     .allowsHitTesting(false)
-                    .animation(.easeInOut(duration: 2), value: idleIntensity)
+                    .onAppear { glowPulse = true }
+                    .onDisappear { glowPulse = false }
             }
         }
         .background(Color(.systemBackground))
@@ -264,6 +271,13 @@ struct TerminalView: View {
             switch message {
             case .state(let state):
                 grid.applyState(state)
+                // Auto-resize on first connection
+                if autoResize && !hasAutoResized {
+                    hasAutoResized = true
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
+                        fitToPhone()
+                    }
+                }
             case .diff(let diff):
                 grid.applyDiff(diff)
             case .scrollback(let sb):
