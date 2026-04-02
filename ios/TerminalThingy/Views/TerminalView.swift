@@ -216,7 +216,7 @@ struct TerminalView: View {
             if elapsed > idleGlowSeconds && idleIntensity == 0 && !waitingForOutput {
                 // Quick pop to baseline
                 withAnimation(.easeIn(duration: 0.8)) {
-                    idleIntensity = 0.35
+                    idleIntensity = 0.2
                 }
                 // Then slow ramp to full
                 DispatchQueue.main.asyncAfter(deadline: .now() + 0.8) {
