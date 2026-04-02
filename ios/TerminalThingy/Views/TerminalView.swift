@@ -17,7 +17,6 @@ struct TerminalView: View {
     @AppStorage("autoResize") private var autoResize = true
     @State private var lastActivityTime = Date()
     @State private var idleIntensity: Double = 0
-    @State private var idleTimer: Timer?
     @State private var hasAutoResized = false
 
     var body: some View {
@@ -197,12 +196,24 @@ struct TerminalView: View {
             }
             setupClient()
             client.connect(url: target.websocketURL, key: target.encryptionKey)
-            startIdleTimer()
         }
         .onDisappear {
             UIApplication.shared.isIdleTimerDisabled = false
             client.disconnect()
-            idleTimer?.invalidate()
+        }
+        .onReceive(Timer.publish(every: 0.5, on: .main, in: .common).autoconnect()) { _ in
+            guard idleGlowEnabled else {
+                if idleIntensity > 0 {
+                    withAnimation(.easeOut(duration: 0.5)) { idleIntensity = 0 }
+                }
+                return
+            }
+            let elapsed = Date().timeIntervalSince(lastActivityTime)
+            if elapsed > idleGlowSeconds && idleIntensity == 0 {
+                withAnimation(.easeIn(duration: 20)) {
+                    idleIntensity = 1.0
+                }
+            }
         }
     }
 
@@ -245,25 +256,6 @@ struct TerminalView: View {
         let cols = CellMetrics.colsForWidth(width, fontSize: CGFloat(fitFontSize))
         let rows = grid.rows > 0 ? grid.rows : 24
         client.sendResize(cols: cols, rows: rows)
-    }
-
-    private func startIdleTimer() {
-        idleTimer?.invalidate()
-        idleTimer = Timer.scheduledTimer(withTimeInterval: 0.5, repeats: true) { _ in
-            guard idleGlowEnabled else {
-                if idleIntensity > 0 {
-                    withAnimation(.easeOut(duration: 0.5)) { idleIntensity = 0 }
-                }
-                return
-            }
-            let elapsed = Date().timeIntervalSince(lastActivityTime)
-            if elapsed > idleGlowSeconds && idleIntensity == 0 {
-                // Threshold crossed — start a single smooth ramp to full intensity
-                withAnimation(.easeIn(duration: 20)) {
-                    idleIntensity = 1.0
-                }
-            }
-        }
     }
 
     private func markActivity() {

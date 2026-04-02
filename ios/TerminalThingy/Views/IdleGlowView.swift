@@ -104,8 +104,9 @@ struct IdleGlowView: View {
             withAnimation(.easeIn(duration: 0.8)) {
                 appeared = true
             }
-            withAnimation(.linear(duration: 8).repeatForever(autoreverses: false)) {
-                phase = .pi * 2
+            // Use 20π so both sin(phase) and sin(phase*1.7) loop cleanly (LCM of periods)
+            withAnimation(.linear(duration: 80).repeatForever(autoreverses: false)) {
+                phase = .pi * 20
             }
         }
         .onDisappear {
