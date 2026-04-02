@@ -78,10 +78,12 @@ struct TerminalView: View {
                             }
                     )
                     .onChange(of: showKeyboard) { _ in
-                        // When keyboard appears/disappears, scroll to keep content visible
+                        // When keyboard appears, scroll to bottom to keep cursor/prompt visible
+                        // When keyboard disappears, scroll to top if no scrollback
                         DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
                             withAnimation {
-                                proxy.scrollTo("viewport", anchor: grid.scrollbackLines.isEmpty ? .top : .bottom)
+                                let anchor: UnitPoint = showKeyboard ? .bottom : (grid.scrollbackLines.isEmpty ? .top : .bottom)
+                                proxy.scrollTo("viewport", anchor: anchor)
                             }
                         }
                     }

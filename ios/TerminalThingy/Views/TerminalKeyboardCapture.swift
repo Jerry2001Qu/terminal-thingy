@@ -29,6 +29,7 @@ class TerminalInputView: UIView, UIKeyInput {
     var onKey: ((String) -> Void)?
     var onHideKeyboard: (() -> Void)?
     var ctrlActive = false
+    private var shiftHeld = false
     private var deleteTimer: Timer?
     private var deleteCount = 0
 
@@ -59,14 +60,40 @@ class TerminalInputView: UIView, UIKeyInput {
 
     override var inputAccessoryView: UIView? { accessoryBar }
 
+    // MARK: Track Shift key
+
+    override func pressesBegan(_ presses: Set<UIPress>, with event: UIPressesEvent?) {
+        for press in presses {
+            if press.key?.keyCode == .keyboardLeftShift || press.key?.keyCode == .keyboardRightShift {
+                shiftHeld = true
+            }
+        }
+        super.pressesBegan(presses, with: event)
+    }
+
+    override func pressesEnded(_ presses: Set<UIPress>, with event: UIPressesEvent?) {
+        for press in presses {
+            if press.key?.keyCode == .keyboardLeftShift || press.key?.keyCode == .keyboardRightShift {
+                shiftHeld = false
+            }
+        }
+        super.pressesEnded(presses, with: event)
+    }
+
     // MARK: UIKeyInput
 
     var hasText: Bool { true }
 
     func insertText(_ text: String) {
         stopDeleteRepeat()
-        // Convert \n to \r — terminals expect carriage return for Enter, not line feed
-        let terminalText = text.replacingOccurrences(of: "\n", with: "\r")
+        // Enter sends \r (carriage return = submit in Claude Code)
+        // Shift+Enter sends \n (line feed = newline in Claude Code)
+        let terminalText: String
+        if text == "\n" {
+            terminalText = shiftHeld ? "\n" : "\r"
+        } else {
+            terminalText = text
+        }
         if ctrlActive {
             for char in terminalText {
                 let upper = char.uppercased()
