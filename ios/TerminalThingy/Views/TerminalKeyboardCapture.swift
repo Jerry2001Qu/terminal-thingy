@@ -29,10 +29,18 @@ class TerminalInputView: UIView, UIKeyInput {
     var onKey: ((String) -> Void)?
     var onHideKeyboard: (() -> Void)?
     var ctrlActive = false
+    private var deleteTimer: Timer?
+    private var deleteCount = 0
 
     // MARK: First responder
 
     override var canBecomeFirstResponder: Bool { true }
+
+    @discardableResult
+    override func resignFirstResponder() -> Bool {
+        stopDeleteRepeat()
+        return super.resignFirstResponder()
+    }
 
     // MARK: Input accessory view
 
@@ -56,6 +64,7 @@ class TerminalInputView: UIView, UIKeyInput {
     var hasText: Bool { true }
 
     func insertText(_ text: String) {
+        stopDeleteRepeat()
         if ctrlActive {
             for char in text {
                 let upper = char.uppercased()
@@ -76,6 +85,25 @@ class TerminalInputView: UIView, UIKeyInput {
 
     func deleteBackward() {
         onKey?("\u{7f}")
+        // Start repeat timer on first delete
+        deleteCount += 1
+        if deleteCount == 1 {
+            // After initial delay, start repeating
+            deleteTimer?.invalidate()
+            deleteTimer = Timer.scheduledTimer(withTimeInterval: 0.4, repeats: false) { [weak self] _ in
+                self?.deleteTimer = Timer.scheduledTimer(withTimeInterval: 0.07, repeats: true) { [weak self] _ in
+                    self?.onKey?("\u{7f}")
+                }
+            }
+        }
+    }
+
+    // Called when the delete key is released (text changes stop)
+    // We reset via insertText or the next interaction
+    private func stopDeleteRepeat() {
+        deleteTimer?.invalidate()
+        deleteTimer = nil
+        deleteCount = 0
     }
 
     // MARK: Special keys from accessory bar
@@ -102,6 +130,8 @@ class TerminalInputView: UIView, UIKeyInput {
     var smartInsertDeleteType: UITextSmartInsertDeleteType { .no }
     var spellCheckingType: UITextSpellCheckingType { .no }
     var keyboardAppearance: UIKeyboardAppearance { .dark }
+    var returnKeyType: UIReturnKeyType { .default }
+    var enablesReturnKeyAutomatically: Bool { false }
 }
 
 // MARK: - UIKit accessory bar
