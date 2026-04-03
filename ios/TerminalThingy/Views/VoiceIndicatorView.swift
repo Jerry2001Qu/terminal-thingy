@@ -9,7 +9,7 @@ struct VoiceIndicatorView: View {
     var body: some View {
         VStack {
             Spacer()
-            HStack(spacing: 6) {
+            HStack(alignment: .top, spacing: 6) {
                 Image(systemName: "mic.fill")
                     .foregroundStyle(glowColor)
 
@@ -22,16 +22,17 @@ struct VoiceIndicatorView: View {
             .padding(.horizontal, 12)
             .padding(.vertical, 6)
             .background(
-                Capsule()
+                RoundedRectangle(cornerRadius: 12)
                     .fill(.ultraThinMaterial)
                     .overlay(
-                        Capsule()
+                        RoundedRectangle(cornerRadius: 12)
                             .fill(flashColor ?? .clear)
                             .opacity(flashColor != nil ? 0.3 : 0)
                     )
             )
-            .clipShape(Capsule())
+            .clipShape(RoundedRectangle(cornerRadius: 12))
             .animation(.none, value: speechService.lastHeard)
+            .padding(.horizontal, 40)
             .padding(.bottom, 60)
         }
         .onChange(of: speechService.commandResult) { result in
@@ -66,17 +67,41 @@ struct VoiceIndicatorView: View {
         let words = speechService.lastHeard.split(separator: " ").map(String.init)
         let cmdStart = speechService.commandStartIndex(in: words)
 
-        return HStack(spacing: 4) {
-            ForEach(Array(words.enumerated()), id: \.offset) { index, word in
-                let isCommand = index == cmdStart && speechService.isCommandWord(word)
-                let isWakeWord = speechService.commandStartIndex(in: words) > 0 && index == 0 && speechService.isCommandWord(word)
-
-                Text(word)
-                    .fontWeight((isCommand || isWakeWord) ? .bold : .regular)
-                    .foregroundStyle((isCommand || isWakeWord) ? glowColor : .secondary)
-            }
-        }
-        .lineLimit(1)
+        return FlowText(words: words, cmdStart: cmdStart, glowColor: glowColor, speechService: speechService)
     }
 }
 
+/// Wrapping text that highlights command keywords
+private struct FlowText: View {
+    let words: [String]
+    let cmdStart: Int
+    let glowColor: Color
+    let speechService: SpeechCommandService
+
+    var body: some View {
+        Text(attributedString)
+            .fixedSize(horizontal: false, vertical: true)
+    }
+
+    private var attributedString: AttributedString {
+        var result = AttributedString()
+        for (index, word) in words.enumerated() {
+            if index > 0 {
+                result.append(AttributedString(" "))
+            }
+            var part = AttributedString(word)
+            let isCommand = index == cmdStart && speechService.isCommandWord(word)
+            let isWakeWord = cmdStart > 0 && index == 0 && speechService.isCommandWord(word)
+
+            if isCommand || isWakeWord {
+                part.foregroundColor = UIColor(glowColor)
+                part.font = .caption.bold()
+            } else {
+                part.foregroundColor = .secondaryLabel
+                part.font = .caption
+            }
+            result.append(part)
+        }
+        return result
+    }
+}

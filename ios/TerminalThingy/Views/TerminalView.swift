@@ -262,10 +262,11 @@ struct TerminalView: View {
                         idleIntensity = 1.0
                     }
                 }
-                // Start listening for wake word when idle (if not already listening via always-on)
-                if voiceCommandsEnabled && !alwaysListening && SpeechCommandService.isAuthorized && !speechService.isListening {
-                    speechService.startListening(wakeWord: wakeWord, voiceTimeout: voiceTimeout, lingerTime: voiceLingerTime, allowServer: allowServerRecognition)
-                }
+                startVoiceIfNeeded()
+            }
+            // If glow is active but listening stopped (linger expired), restart
+            if idleIntensity > 0 && !waitingForOutput {
+                startVoiceIfNeeded()
             }
         }
     }
@@ -312,6 +313,12 @@ struct TerminalView: View {
     }
 
     /// Called on terminal output — resets idle timer, allows glow to re-trigger later
+    private func startVoiceIfNeeded() {
+        guard voiceCommandsEnabled && !alwaysListening && SpeechCommandService.isAuthorized else { return }
+        guard !speechService.isListening else { return }
+        speechService.startListening(wakeWord: wakeWord, voiceTimeout: voiceTimeout, lingerTime: voiceLingerTime, allowServer: allowServerRecognition)
+    }
+
     private func markTerminalActivity() {
         lastActivityTime = Date()
         waitingForOutput = false
